@@ -185,5 +185,22 @@ namespace DEGMA.Controllers
         {
             return _context.Reports.Any(e => e.ReportId == id);
         }
+
+        [HttpGet]
+        public async Task<IActionResult> GetPatientData(int id)
+        {
+            var patient = await _context.Patients
+                .Include(p => p.Reports)
+                .FirstOrDefaultAsync(p => p.PatientId == id);
+
+            if (patient == null) return NotFound();
+
+            return Json(new
+            {
+                nextReportNumber = patient.Reports.Count + 1,
+                startDate = patient.TreatmentStartDate.ToString("yyyy-MM-dd"),
+                startingWeight = patient.StartingWeight
+            });
+        }
     }
 }

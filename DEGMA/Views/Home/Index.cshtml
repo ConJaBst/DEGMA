@@ -2,7 +2,145 @@
     ViewData["Title"] = "Home Page";
 }
 
-<div class="text-center">
-    <h1 class="display-4">Welcome</h1>
-    <p>Learn about <a href="https://learn.microsoft.com/aspnet/core">building Web apps with ASP.NET Core</a>.</p>
+@model DEGMA.Models.DashboardViewModel
+
+@{
+    ViewData["Title"] = "Dashboard";
+}
+
+<div class="container-fluid px-4 mt-4">
+    <h2 class="fw-bold text-white mb-4">Medical Overview</h2>
+
+    <!-- Quick Action Buttons -->
+    <div class="row mb-4 g-3">
+        <div class="col-md-3">
+            <a asp-controller="Patients" asp-action="Create" class="btn btn-primary w-100 py-3 shadow-sm">
+                <i class="bi bi-person-plus-fill me-2"></i> Add New Patient
+            </a>
+        </div>
+        <div class="col-md-3">
+            <a asp-controller="Patients" asp-action="Index" class="btn btn-outline-primary w-100 py-3 shadow-sm">
+                <i class="bi bi-people-fill me-2"></i> Patient Directory
+            </a>
+        </div>
+        <div class="col-md-3">
+            <a asp-controller="Reports" asp-action="Create" class="btn btn-success w-100 py-3 shadow-sm text-white">
+                <i class="bi bi-file-earmark-plus-fill me-2"></i> Log New Report
+            </a>
+        </div>
+        <div class="col-md-3">
+            <a asp-controller="Reports" asp-action="Index" class="btn btn-outline-success w-100 py-3 shadow-sm">
+                <i class="bi bi-journal-text me-2"></i> All Reports
+            </a>
+        </div>
+    </div>
+
+    <!-- Stats Grid -->
+    <div class="row g-3">
+        <!-- Main 3 Stats -->
+        <div class="col-md-4">
+            <div class="card shadow-sm border-0">
+                <div class="card-body">
+                    <h6 class="text-muted small text-uppercase fw-bold">Unique Patients</h6>
+                    <h1 class="fw-bold mb-0">@Model.TotalPatients</h1>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card shadow-sm border-0">
+                <div class="card-body">
+                    <h6 class="text-muted small text-uppercase fw-bold">Avg. Weight Loss</h6>
+                    <h1 class="fw-bold mb-0 text-success">@Model.AverageWeightLoss.ToString("0.0") <small>kg</small></h1>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card shadow-sm border-0">
+                <div class="card-body">
+                    <h6 class="text-muted small text-uppercase fw-bold">Total Reports</h6>
+                    <h1 class="fw-bold mb-0">@Model.TotalReports</h1>
+                </div>
+            </div>
+        </div>
+
+        <!-- 5 Additional Stats -->
+        <div class="col-md-2">
+            <div class="card border-0 shadow-sm text-center py-2">
+                <div class="card-body p-2">
+                    <small class="text-muted d-block">Max Loss</small>
+                    <span class="fw-bold text-info h5">@Model.MaxIndividualLoss.ToString("0.0") kg</span>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm text-center py-2">
+                <div class="card-body p-2">
+                    <small class="text-muted d-block">Common Side Effect</small>
+                    <span class="fw-bold h5">@Model.MostCommonSideEffect</span>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card border-0 shadow-sm text-center py-2">
+                <div class="card-body p-2">
+                    <small class="text-muted d-block">Total Dosage</small>
+                    <span class="fw-bold h5">@Model.TotalDosageAdministered mg</span>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card border-0 shadow-sm text-center py-2">
+                <div class="card-body p-2">
+                    <small class="text-muted d-block">Reports (7d)</small>
+                    <span class="fw-bold h5">@Model.ReportsThisWeek</span>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm text-center py-2">
+                <div class="card-body p-2">
+                    <small class="text-muted d-block">Non-Responders</small>
+                    <span class="fw-bold text-warning h5">@Model.PatientsWithZeroLoss</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Activity Table -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-transparent border-0 p-3">
+                    <h5 class="fw-bold text-white mb-0">Recent Activity</h5>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th class="ps-4">Patient</th>
+                                <th>Date</th>
+                                <th>Weight</th>
+                                <th>Dosage</th>
+                                <th class="text-end pe-4">Details</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var report in Model.RecentReports)
+                            {
+                                <tr>
+                                    <td class="ps-4 fw-bold">@report.Patient.Firstname @report.Patient.Surname</td>
+                                    <td class="text-muted small">@report.Date.ToShortDateString()</td>
+                                    <td>@report.Weight kg</td>
+                                    <td>@report.Dosage mg</td>
+                                    <td class="text-end pe-4">
+                                        <a asp-controller="Patients" asp-action="Details" asp-route-id="@report.PatientId" class="btn btn-sm btn-outline-secondary py-0">Profile</a>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>

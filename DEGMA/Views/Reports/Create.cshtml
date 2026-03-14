@@ -1,84 +1,166 @@
 ﻿@model DEGMA.Models.Report
 
 @{
-    ViewData["Title"] = "Create";
+    ViewData["Title"] = "New Medical Report";
 }
 
-<h1>Create</h1>
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-9">
+            <div class="card shadow-sm border-0">
+                <div class="card-body p-5">
+                    <div class="mb-4">
+                        <h2 class="fw-bold text-success">New Progress Report</h2>
+                        <p class="text-muted">Record weekly progress, dosage, and observe side effects.</p>
+                    </div>
 
-<h4>Report</h4>
-<hr />
-<div class="row">
-    <div class="col-md-4">
-        <form asp-action="Create">
-            <div asp-validation-summary="ModelOnly" class="text-danger"></div>
-            <div class="form-group">
-                <label asp-for="ReportNumber" class="control-label"></label>
-                <input asp-for="ReportNumber" class="form-control" />
-                <span asp-validation-for="ReportNumber" class="text-danger"></span>
-            </div>
-            <div class="form-group">
-                <label asp-for="WeekNumber" class="control-label"></label>
-                <input asp-for="WeekNumber" class="form-control" />
-                <span asp-validation-for="WeekNumber" class="text-danger"></span>
-            </div>
-            <div class="form-group">
-                <label asp-for="Weight" class="control-label"></label>
-                <input asp-for="Weight" class="form-control" />
-                <span asp-validation-for="Weight" class="text-danger"></span>
-            </div>
-            <div class="form-group">
-                <label asp-for="Dosage" class="control-label"></label>
-                <input asp-for="Dosage" class="form-control" />
-                <span asp-validation-for="Dosage" class="text-danger"></span>
-            </div>
-            <div class="form-group">
-                <label asp-for="WeightChange" class="control-label"></label>
-                <input asp-for="WeightChange" class="form-control" />
-                <span asp-validation-for="WeightChange" class="text-danger"></span>
-            </div>
-            <div class="form-group">
-                <label asp-for="Notes" class="control-label"></label>
-                <input asp-for="Notes" class="form-control" />
-                <span asp-validation-for="Notes" class="text-danger"></span>
-            </div>
-            <div class="form-group">
-                <label asp-for="PatientId" class="control-label"></label>
-                <select id="patientSelector" asp-for="PatientId" class="form-control" asp-items="ViewBag.PatientId"></select>
-            </div>
-            <div class="form-group mb-3">
-                <label class="control-label fw-bold">Select Side Effects</label>
-                <div class="border p-3 rounded">
-                    @foreach (var sideEffect in ViewBag.AllSideEffects)
-                    {
-                        <div class="form-check">
-                            <input class="form-check-input" type="checkbox" name="selectedSideEffects" value="@sideEffect.SideEffectId" id="se_@sideEffect.SideEffectId">
-                            <label class="form-check-label" for="se_@sideEffect.SideEffectId">
-                                @sideEffect.Name
-                            </label>
+                    <form asp-action="Create">
+                        <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+
+                        <div class="row mb-4">
+                            <div class="col-md-12">
+                                <label class="form-label fw-bold small text-uppercase">Select Patient</label>
+                                <select id="patientSelector" asp-for="PatientId" class="form-select" asp-items="ViewBag.PatientId">
+                                    <option value="">-- Start typing patient name --</option>
+                                </select>
+                            </div>
                         </div>
-                    }
+
+                        <div class="col-md-4">
+                            <label asp-for="Date" class="form-label fw-bold small text-uppercase"></label>
+                            <input asp-for="Date" id="reportDate" class="form-control" />
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-4">
+                                <label asp-for="ReportNumber" class="form-label fw-bold small text-uppercase"></label>
+                                <input asp-for="ReportNumber" class="form-control" readonly />
+                                <span asp-validation-for="ReportNumber" class="text-danger">  </span>
+                            </div>
+                            <div class="col-md-4">
+                                <label asp-for="WeekNumber" class="form-label fw-bold small text-uppercase"></label>
+                                <input asp-for="WeekNumber" class="form-control" readonly />
+                                <span asp-validation-for="WeekNumber" class="text-danger">  </span>
+                            </div>
+                            <div class="col-md-4">
+                                <label asp-for="Dosage" class="form-label fw-bold small text-uppercase">Dosage (mg)</label>
+                                <input asp-for="Dosage" class="form-control" />
+                                <span asp-validation-for="Dosage" class="text-danger"></span>
+                            </div>
+                        </div>
+
+                        <div class="row mb-4">
+                            <div class="col-md-4">
+                                <label asp-for="Weight" class="form-label fw-bold small text-uppercase">Current Weight (kg)</label>
+                                <input asp-for="Weight" class="form-control" />
+                                <span asp-validation-for="Weight" class="text-danger"> </span>
+                            </div>
+
+                            <div class="col-md-4">
+                                <label asp-for="WeightChange" class="form-label fw-bold small text-uppercase">Weight Change</label>
+                                <input asp-for="WeightChange" id="weightChange" class="form-control" readonly />
+                            </div>
+
+                            <div class="col-md-8">
+                                <label asp-for="Notes" class="form-label fw-bold small text-uppercase"></label>
+                                <textarea asp-for="Notes" class="form-control" rows="1" placeholder="Observation notes..."></textarea>
+                                <span asp-validation-for="Notes" class="text-danger"> </span>
+                            </div>
+                        </div>
+
+                        <div class="mb-4">
+                            <label class="form-label fw-bold small text-uppercase mb-2 text-muted">Observed Side Effects</label>
+                            <div class="p-3 rounded border bg-dark text-light" style="max-height: 200px; overflow-y: auto; border-color: var(--border) !important;">
+                                <div class="row">
+                                    @foreach (var sideEffect in (List<DEGMA.Models.SideEffect>)ViewBag.AllSideEffects)
+                                    {
+                                        <div class="col-md-4 mb-2">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" name="selectedSideEffects" value="@sideEffect.SideEffectId" id="se_@sideEffect.SideEffectId">
+                                                <label class="form-check-label" for="se_@sideEffect.SideEffectId">
+                                                    @sideEffect.Name
+                                                </label>
+                                            </div>
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="d-flex justify-content-between align-items-center mt-5 pt-3 border-top">
+                            <a asp-action="Index" class="text-decoration-none text-muted">
+                                <i class="bi bi-arrow-left"></i> Back to Reports
+                            </a>
+                            <button type="submit" class="btn btn-success px-5 py-2 fw-bold">Submit Report</button>
+                        </div>
+                    </form>
                 </div>
             </div>
-            <div class="form-group">
-                <input type="submit" value="Create" class="btn btn-primary" />
-            </div>
-        </form>
+        </div>
     </div>
-</div>
-
-<div>
-    <a asp-action="Index">Back to List</a>
 </div>
 
 @section Scripts {
     @{
         await Html.RenderPartialAsync("_ValidationScriptsPartial");
     }
+    
     <script>
+
+        let patientStartDate = "";
+        let startingWeight = 0;
+
         $(document).ready(function() {
-            // This targets your dropdown by its ID and turns it into a searchable box
-            $('#patientSelector').select2();
+            $('#patientSelector').select2({ theme: 'bootstrap-5' });
+
+            // WHEN PATIENT IS SELECTED
+            $('#patientSelector').on('change', function() {
+                const patientId = $(this).val();
+                if (!patientId) return;
+
+                // Call our API to get patient info
+                fetch(`/Reports/GetPatientData/${patientId}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        $('#reportNumber').val(data.nextReportNumber);
+                        patientStartDate = data.startDate;
+                        startingWeight = data.startingWeight;
+                        calculateWeek(); // Recalculate week based on this patient's start date
+                    });
+            });
+
+            // WHEN DATE OR WEIGHT CHANGES
+            $('#reportDate').on('change', calculateWeek);
+            $('#currentWeight').on('input', calculateWeightChange);
+
+            function calculateWeek() {
+                if (!patientStartDate || !$('#reportDate').val()) return;
+
+                const start = new Date(patientStartDate);
+                const report = new Date($('#reportDate').val());
+            
+                // Calculate difference in weeks
+                const diffTime = Math.abs(report - start);
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                const weekNum = Math.floor(diffDays / 7);
+
+                $('#weekNumber').val(weekNum);
+            }
+
+            function calculateWeightChange() {
+                const current = parseFloat($('#currentWeight').val());
+                if (isNaN(current) || startingWeight === 0) return;
+
+                const change = current - startingWeight;
+                $('#weightChange').val(change.toFixed(2));
+            }
+        });
+        $(document).ready(function() {
+            // Activate the searchable dropdown
+            $('#patientSelector').select2({
+                theme: 'bootstrap-5',
+                width: '100%'
+            });
         });
     </script>
 }

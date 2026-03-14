@@ -10,6 +10,8 @@ namespace DEGMA.Models
         [DataType(DataType.Date)] public DateOnly DateOfBirth { get; set; }
         public string Email { get; set; }
         public double StartingWeight { get; set; }
+        [DataType(DataType.Date)]
+        public DateOnly TreatmentStartDate { get; set; } = DateOnly.FromDateTime(DateTime.Now);
 
         public List<Report> Reports { get; set; } = new List<Report>();
     }
@@ -22,6 +24,8 @@ namespace DEGMA.Models
         public double Dosage { get; set; }
         public double WeightChange { get; set; }
         public string Notes { get; set; }
+        [DataType(DataType.Date)]
+        public DateOnly Date { get; set; } = DateOnly.FromDateTime(DateTime.Now);
         public List<SideEffect> SideEffects { get; set; } = new List<SideEffect>();
         public int PatientId { get; set; }
         public Patient? Patient { get; set; }

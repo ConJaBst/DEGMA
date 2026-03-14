@@ -1,70 +1,162 @@
 ﻿@model DEGMA.Models.Patient
 
 @{
-    ViewData["Title"] = "Details";
+    ViewData["Title"] = "Patient Profile";
+    // Quick math for the header stats
+    var currentWeight = Model.Reports.LastOrDefault()?.Weight ?? Model.StartingWeight;
+    var totalLost = currentWeight - Model.StartingWeight;
 }
 
-<h1>Details</h1>
+<div class="container mt-4">
+    <!-- Header: Quick Stats -->
+    <div class="row mb-4 align-items-end">
+        <div class="col-md-7">
+            <h1 class="fw-bold text-white mb-0">@Model.Firstname @Model.Surname</h1>
+            <p class="text-muted">Treatment started on @Model.TreatmentStartDate.ToShortDateString()</p>
+        </div>
+        <div class="col-md-5 text-md-end">
+            <a asp-action="Edit" asp-route-id="@Model.PatientId" class="btn btn-outline-secondary btn-sm">Edit Profile</a>
+            <a asp-controller="Reports" asp-action="Create" class="btn btn-primary btn-sm ms-2">+ Log New Report</a>
+        </div>
+    </div>
 
-<div>
-    <h4>Patient</h4>
-    <hr />
-    <dl class="row">
-        <dt class = "col-sm-2">
-            @Html.DisplayNameFor(model => model.Firstname)
-        </dt>
-        <dd class = "col-sm-10">
-            @Html.DisplayFor(model => model.Firstname)
-        </dd>
-        <dt class = "col-sm-2">
-            @Html.DisplayNameFor(model => model.Surname)
-        </dt>
-        <dd class = "col-sm-10">
-            @Html.DisplayFor(model => model.Surname)
-        </dd>
-        <dt class = "col-sm-2">
-            @Html.DisplayNameFor(model => model.DateOfBirth)
-        </dt>
-        <dd class = "col-sm-10">
-            @Html.DisplayFor(model => model.DateOfBirth)
-        </dd>
-        <dt class = "col-sm-2">
-            @Html.DisplayNameFor(model => model.Email)
-        </dt>
-        <dd class = "col-sm-10">
-            @Html.DisplayFor(model => model.Email)
-        </dd>
-        <dt class = "col-sm-2">
-            @Html.DisplayNameFor(model => model.StartingWeight)
-        </dt>
-        <dd class = "col-sm-10">
-            @Html.DisplayFor(model => model.StartingWeight)
-        </dd>
-    </dl>
+    <div class="row g-3">
+        <!-- Sidebar: Patient Info -->
+        <div class="col-md-4">
+            <div class="card h-100 shadow-sm">
+                <div class="card-body">
+                    <h6 class="text-uppercase text-muted small fw-bold mb-3">Patient Statistics</h6>
+                    
+                    <div class="mb-3">
+                        <label class="text-muted d-block small">Starting Weight</label>
+                        <span class="h4">@Model.StartingWeight kg</span>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="text-muted d-block small">Current Weight</label>
+                        <span class="h4">@currentWeight kg</span>
+                    </div>
+
+                    <div class="mb-1">
+                        <label class="text-muted d-block small">Total Progress</label>
+                        <span class="h4 @(totalLost <= 0 ? "text-success" : "text-danger")">
+                            @(totalLost > 0 ? "+" : "")@totalLost.ToString("0.00") kg
+                        </span>
+                    </div>
+                    <hr class="opacity-10" />
+                    <p class="small text-muted mb-1"><i class="bi bi-envelope me-2"></i>@Model.Email</p>
+                    <p class="small text-muted mb-0"><i class="bi bi-calendar-event me-2"></i>Born @Model.DateOfBirth</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content: Graph -->
+        <div class="col-md-8">
+            <div class="card h-100 shadow-sm">
+                <div class="card-body">
+                    <h6 class="text-uppercase text-muted small fw-bold mb-3">Weight Progression Curve</h6>
+                    <div style="height: 280px; width: 100%;">
+                        <canvas id="weightChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- History Table -->
+        <div class="col-12 mt-3">
+            <div class="card shadow-sm">
+                <div class="card-body p-0">
+                    <div class="p-3 border-bottom border-secondary border-opacity-10">
+                        <h6 class="text-uppercase text-muted small fw-bold mb-0">Treatment History</h6>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead>
+                                <tr>
+                                    <th class="ps-4">Week</th>
+                                    <th>Date</th>
+                                    <th>Weight</th>
+                                    <th>Change</th>
+                                    <th>Dosage</th>
+                                    <th>Side Effects</th>
+                                    <th class="text-end pe-4">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var report in Model.Reports)
+                                {
+                                    <tr>
+                                        <td class="ps-4">Wk @report.WeekNumber</td>
+                                        <td class="text-muted small">@report.Date.ToShortDateString()</td>
+                                        <td class="fw-bold">@report.Weight kg</td>
+                                        <td class="@(report.WeightChange <= 0 ? "text-success" : "text-danger")">
+                                            @(report.WeightChange > 0 ? "+" : "")@report.WeightChange.ToString("0.00")
+                                        </td>
+                                        <td><span class="badge bg-dark border border-secondary text-info">@report.Dosage mg</span></td>
+                                        <td class="small">
+                                            @foreach(var se in report.SideEffects)
+                                            {
+                                                <span class="badge rounded-pill bg-secondary bg-opacity-25 text-white fw-normal me-1">@se.Name</span>
+                                            }
+                                        </td>
+                                        <td class="text-end pe-4">
+                                            <a asp-controller="Reports" asp-action="Edit" asp-route-id="@report.ReportId" class="btn btn-sm text-muted p-0"><i class="bi bi-pencil"></i></a>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
-<div>
-    <a asp-action="Edit" asp-route-id="@Model?.PatientId">Edit</a> |
-    <h4>Medical History (Reports)</h4>
-    <table class="table table-striped">
-        <thead>
-            <tr>
-                <th>Week</th>
-                <th>Weight</th>
-                <th>Dosage</th>
-                <th>Notes</th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach (var report in Model.Reports.OrderByDescending(r => r.WeekNumber))
-            {
-                <tr>
-                    <td>@report.WeekNumber</td>
-                    <td>@report.Weight kg</td>
-                    <td>@report.Dosage mg</td>
-                    <td>@report.Notes</td>
-                </tr>
+
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <script>
+        const ctx = document.getElementById('weightChart').getContext('2d');
+        
+        // Data Preparation
+        const labels = ['Start', @foreach(var r in Model.Reports) { <text>'Wk @r.WeekNumber',</text> }];
+        const weightData = [@Model.StartingWeight, @foreach(var r in Model.Reports) { <text>@r.Weight,</text> }];
+
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Weight (kg)',
+                    data: weightData,
+                    borderColor: '#3d8bfd', // Medical Blue
+                    backgroundColor: 'rgba(61, 139, 253, 0.1)',
+                    borderWidth: 3,
+                    tension: 0.35,
+                    fill: true,
+                    pointRadius: 4,
+                    pointBackgroundColor: '#3d8bfd'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: false,
+                        grid: { color: 'rgba(255, 255, 255, 0.05)' }, // Very faint grid
+                        ticks: { color: '#6c757d' } // Muted labels
+                    },
+                    x: {
+                        grid: { display: false },
+                        ticks: { color: '#6c757d' }
+                    }
+                },
+                plugins: {
+                    legend: { display: false }
+                }
             }
-        </tbody>
-    </table>
-    <a asp-action="Index">Back to List</a>
-</div>
+        });
+    </script>
+}

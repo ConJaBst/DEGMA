@@ -41,6 +41,9 @@ namespace DEGMA.Migrations
                         .IsRequired()
                         .HasColumnType("TEXT");
 
+                    b.Property<DateOnly>("TreatmentStartDate")
+                        .HasColumnType("TEXT");
+
                     b.HasKey("PatientId");
 
                     b.ToTable("Patients");
@@ -51,6 +54,9 @@ namespace DEGMA.Migrations
                     b.Property<int>("ReportId")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
+
+                    b.Property<DateOnly>("Date")
+                        .HasColumnType("TEXT");
 
                     b.Property<double>("Dosage")
                         .HasColumnType("REAL");

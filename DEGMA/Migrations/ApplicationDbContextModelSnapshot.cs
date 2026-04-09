@@ -62,7 +62,6 @@ namespace DEGMA.Migrations
                         .HasColumnType("REAL");
 
                     b.Property<string>("Notes")
-                        .IsRequired()
                         .HasColumnType("TEXT");
 
                     b.Property<int>("PatientId")

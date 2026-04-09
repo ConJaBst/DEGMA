@@ -23,7 +23,7 @@ namespace DEGMA.Models
         public double Weight { get; set; }
         public double Dosage { get; set; }
         public double WeightChange { get; set; }
-        public string Notes { get; set; }
+        public string? Notes { get; set; }
         [DataType(DataType.Date)]
         public DateOnly Date { get; set; } = DateOnly.FromDateTime(DateTime.Now);
         public List<SideEffect> SideEffects { get; set; } = new List<SideEffect>();

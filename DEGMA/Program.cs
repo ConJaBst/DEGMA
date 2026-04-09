@@ -29,6 +29,19 @@ builder.Services.ConfigureApplicationCookie(options =>
     options.AccessDeniedPath = "/Auth/AccessDenied";
 });
 
+builder.Services.AddDistributedMemoryCache();
+builder.Services.AddSession(options => {
+    options.IdleTimeout = TimeSpan.FromMinutes(30);
+    options.Cookie.HttpOnly = true;
+    options.Cookie.IsEssential = true;
+});
+
+builder.Services.Configure<Microsoft.AspNetCore.Http.Features.FormOptions>(options =>
+{
+    options.ValueCountLimit = 10000; // Increase limit to handle large CSVs
+    options.ValueLengthLimit = int.MaxValue;
+    options.MultipartBodyLengthLimit = int.MaxValue;
+}); 
 
 // Add services to the container.
 builder.Services.AddControllersWithViews();
@@ -100,7 +113,9 @@ app.UseRouting();
 
 app.UseAuthorization();
 
-app.UseStaticFiles(); 
+app.UseStaticFiles();
+
+app.UseSession();
 
 app.MapControllerRoute(
     name: "default",

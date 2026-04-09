@@ -127,8 +127,12 @@
         
         // Data Preparation
         const labels = ['Start', @foreach(var r in Model.Reports) { <text>'Wk @r.WeekNumber',</text> }];
-        const weightData = [@Model.StartingWeight, @foreach(var r in Model.Reports) { <text>@r.Weight,</text> }];
-
+        const weightData = [
+            @Model.StartingWeight.ToString(System.Globalization.CultureInfo.InvariantCulture), 
+            @foreach(var r in Model.Reports) { 
+                <text>@r.Weight.ToString(System.Globalization.CultureInfo.InvariantCulture),</text> 
+            }
+            ];
         new Chart(ctx, {
             type: 'line',
             data: {

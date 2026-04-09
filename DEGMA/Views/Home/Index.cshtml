@@ -106,6 +106,74 @@
         </div>
     </div>
 
+    <!-- Backup -->
+    <div class="row mb-4 mt-3">
+        <div class="col-12">
+            <div class="card shadow-sm border-0">
+                <div class="card-body">
+                    <h6 class="text-uppercase text-muted small fw-bold mb-3">
+                        <i class="bi bi-download me-2"></i>Data Backup
+                    </h6>
+                    <form asp-controller="Backup" asp-action="Download" method="post" class="d-flex align-items-center gap-5 flex-wrap">
+                        @Html.AntiForgeryToken()
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="includePrime" id="chkPrime" value="true" checked />
+                            <label class="form-check-label" for="chkPrime">
+                                Full Backup
+                                <small class="text-muted d-block" style="font-size:10px;">All reports with patient info</small>
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="includePatients" id="chkPatients" value="true" />
+                            <label class="form-check-label" for="chkPatients">
+                                Patients Only
+                                <small class="text-muted d-block" style="font-size:10px;">Patient records, no reports</small>
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="includeReports" id="chkReports" value="true" />
+                            <label class="form-check-label" for="chkReports">
+                                Reports Only
+                                <small class="text-muted d-block" style="font-size:10px;">Report data, no patient info</small>
+                            </label>
+                        </div>
+                        <button type="submit" class="btn btn-outline-info btn-sm ms-auto">
+                            <i class="bi bi-download me-1"></i> Download Selected
+                        </button>
+                    </form>
+                    <hr class="border-secondary border-opacity-25 my-3" />
+
+                    <h6 class="text-uppercase text-muted small fw-bold mb-3">
+                        <i class="bi bi-upload me-2"></i>Restore from CSV
+                    </h6>
+                    <form asp-controller="Import" asp-action="Upload" method="post"
+                          enctype="multipart/form-data"
+                          class="d-flex align-items-center gap-3 flex-wrap">
+                        @Html.AntiForgeryToken()
+                        <input type="file" name="csvFile" accept=".csv"
+                               class="form-control form-control-sm" style="max-width:300px;" />
+                        <button type="submit" class="btn btn-outline-warning btn-sm">
+                            <i class="bi bi-upload me-1"></i> Upload & Review
+                        </button>
+                    </form>
+
+                    @if (TempData["ImportSuccess"] != null)
+                    {
+                        <div class="alert alert-success mt-3 mb-0 py-2 small">
+                            <i class="bi bi-check-circle me-1"></i> @TempData["ImportSuccess"]
+                        </div>
+                    }
+                    @if (TempData["ImportError"] != null)
+                    {
+                        <div class="alert alert-danger mt-3 mb-0 py-2 small">
+                            <i class="bi bi-x-circle me-1"></i> @TempData["ImportError"]
+                        </div>
+                    }
+                </div>
+
+            </div>
+        </div>
+    </div>
     <!-- Recent Activity Table -->
     <div class="row mt-4">
         <div class="col-12">

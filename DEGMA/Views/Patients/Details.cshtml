@@ -14,11 +14,17 @@
             <h1 class="fw-bold text-white mb-0">@Model.Firstname @Model.Surname</h1>
             <p class="text-muted">Treatment started on @Model.TreatmentStartDate.ToShortDateString()</p>
         </div>
-        <div class="col-md-5 text-md-end">
-            <a asp-action="Edit" asp-route-id="@Model.PatientId" class="btn btn-outline-secondary btn-sm">Edit Profile</a>
-            <a asp-controller="Reports" asp-action="Create" class="btn btn-primary btn-sm ms-2">+ Log New Report</a>
-        </div>
+    <div class="col-md-5 text-md-end">
+        <a asp-action="Edit" asp-route-id="@Model.PatientId" class="btn btn-outline-secondary btn-sm">Edit Profile</a>
+        <a asp-action="ReportPreview" asp-route-id="@Model.PatientId" class="btn btn-outline-info btn-sm ms-2" target="_blank">
+        <i class="bi bi-eye"></i> Preview Report
+        </a>
+        <a asp-action="DownloadReport" asp-route-id="@Model.PatientId" class="btn btn-outline-light btn-sm ms-2">
+        <i class="bi bi-download"></i> Download PDF
+        </a>
+        <a asp-controller="Reports" asp-action="Create" class="btn btn-primary btn-sm ms-2">+ Log New Entry</a>
     </div>
+    
 
     <div class="row g-3">
         <!-- Sidebar: Patient Info -->

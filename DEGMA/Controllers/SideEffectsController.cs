@@ -1,12 +1,13 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
+﻿using DEGMA.Data;
+using DEGMA.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
-using DEGMA.Models;
-using DEGMA.Data;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 
 namespace DEGMA.Controllers
 {
@@ -44,6 +45,7 @@ namespace DEGMA.Controllers
         }
 
         // GET: SideEffects/Create
+        [Authorize(Roles = "Doctor")]
         public IActionResult Create()
         {
             return View();
@@ -54,6 +56,7 @@ namespace DEGMA.Controllers
         // For more details, see http://go.microsoft.com/fwlink/?LinkId=317598.
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [Authorize(Roles = "Doctor")]
         public async Task<IActionResult> Create([Bind("SideEffectId,Name")] SideEffect sideEffect)
         {
             if (ModelState.IsValid)
@@ -66,6 +69,7 @@ namespace DEGMA.Controllers
         }
 
         // GET: SideEffects/Edit/5
+        [Authorize(Roles = "Doctor")]
         public async Task<IActionResult> Edit(int? id)
         {
             if (id == null)
@@ -86,6 +90,7 @@ namespace DEGMA.Controllers
         // For more details, see http://go.microsoft.com/fwlink/?LinkId=317598.
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [Authorize(Roles = "Doctor")]
         public async Task<IActionResult> Edit(int id, [Bind("SideEffectId,Name")] SideEffect sideEffect)
         {
             if (id != sideEffect.SideEffectId)
@@ -117,6 +122,7 @@ namespace DEGMA.Controllers
         }
 
         // GET: SideEffects/Delete/5
+        [Authorize(Roles = "Doctor")]
         public async Task<IActionResult> Delete(int? id)
         {
             if (id == null)
@@ -137,6 +143,7 @@ namespace DEGMA.Controllers
         // POST: SideEffects/Delete/5
         [HttpPost, ActionName("Delete")]
         [ValidateAntiForgeryToken]
+        [Authorize(Roles = "Doctor")]
         public async Task<IActionResult> DeleteConfirmed(int id)
         {
             var sideEffect = await _context.SideEffects.FindAsync(id);

@@ -1,28 +1,85 @@
-﻿using System;
+﻿using DEGMA.Data;
+using DEGMA.Models;
+using DinkToPdf;
+using DinkToPdf.Contracts;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
+using Microsoft.AspNetCore.Mvc.Rendering;
+using Microsoft.AspNetCore.Mvc.ViewEngines;
+using Microsoft.AspNetCore.Mvc.ViewFeatures;
+using Microsoft.EntityFrameworkCore;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.Rendering;
-using Microsoft.EntityFrameworkCore;
-using DEGMA.Data;
-using DEGMA.Models;
 
 namespace DEGMA.Controllers
 {
+    [Authorize]
     public class PatientsController : Controller
     {
         private readonly ApplicationDbContext _context;
+        private readonly IConverter _pdfConverter;
+        private readonly ICompositeViewEngine _viewEngine;
+        private readonly ITempDataProvider _tempDataProvider;
 
-        public PatientsController(ApplicationDbContext context)
+        public PatientsController(ApplicationDbContext context, IConverter pdfConverter,
+            ICompositeViewEngine viewEngine, ITempDataProvider tempDataProvider)
         {
             _context = context;
+            _pdfConverter = pdfConverter;
+            _viewEngine = viewEngine;
+            _tempDataProvider = tempDataProvider;
         }
 
         // GET: Patients
-        public async Task<IActionResult> Index()
+        public async Task<IActionResult> Index(string searchString, string sortOrder)
         {
-            return View(await _context.Patients.ToListAsync());
+            ViewData["NameSortParam"] = sortOrder == "name" ? "name_desc" : "name";
+            ViewData["AgeSortParam"] = sortOrder == "age" ? "age_desc" : "age";
+            ViewData["WeightSortParam"] = sortOrder == "weight" ? "weight_desc" : "weight";
+            ViewData["RecentSortParam"] = sortOrder == "recent" ? "recent_desc" : "recent";
+            ViewData["CurrentFilter"] = searchString;
+            ViewData["CurrentSort"] = sortOrder;
+
+            var patients = _context.Patients
+                .Include(p => p.Reports)
+                .AsQueryable();
+
+            // --- SEARCH ---
+            if (!string.IsNullOrEmpty(searchString))
+            {
+                string lower = searchString.ToLower();
+
+                patients = patients.Where(p =>
+                    p.Firstname.ToLower().Contains(lower) ||
+                    p.Surname.ToLower().Contains(lower) ||
+                    p.DateOfBirth.ToString().Contains(lower)
+                );
+            }
+
+            // --- SORT ---
+            patients = sortOrder switch
+            {
+                "name" => patients.OrderBy(p => p.Surname),
+                "name_desc" => patients.OrderByDescending(p => p.Surname),
+                "age" => patients.OrderBy(p => p.DateOfBirth),        // oldest first
+                "age_desc" => patients.OrderByDescending(p => p.DateOfBirth), // youngest first
+                "weight" => patients.OrderBy(p => p.StartingWeight),
+                "weight_desc" => patients.OrderByDescending(p => p.StartingWeight),
+                "recent" => patients.OrderByDescending(p => p.Reports
+                                    .OrderByDescending(r => r.Date)
+                                    .Select(r => r.Date)
+                                    .FirstOrDefault()),
+                "recent_desc" => patients.OrderBy(p => p.Reports
+                                    .OrderByDescending(r => r.Date)
+                                    .Select(r => r.Date)
+                                    .FirstOrDefault()),
+                _ => patients.OrderBy(p => p.Surname) // default
+            };
+
+            return View(await patients.ToListAsync());
         }
 
         // GET: Patients/Details/5
@@ -40,6 +97,7 @@ namespace DEGMA.Controllers
         }
 
         // GET: Patients/Create
+        [Authorize(Roles = "Doctor")]
         public IActionResult Create()
         {
             return View();
@@ -62,6 +120,7 @@ namespace DEGMA.Controllers
         }
 
         // GET: Patients/Edit/5
+        [Authorize(Roles = "Doctor")]
         public async Task<IActionResult> Edit(int? id)
         {
             if (id == null)
@@ -82,6 +141,7 @@ namespace DEGMA.Controllers
         // For more details, see http://go.microsoft.com/fwlink/?LinkId=317598.
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [Authorize(Roles = "Doctor")]
         public async Task<IActionResult> Edit(int id, [Bind("PatientId,Firstname,Surname,DateOfBirth,Email,StartingWeight")] Patient patient)
         {
             if (id != patient.PatientId)
@@ -113,6 +173,7 @@ namespace DEGMA.Controllers
         }
 
         // GET: Patients/Delete/5
+        [Authorize(Roles = "Doctor")]
         public async Task<IActionResult> Delete(int? id)
         {
             if (id == null)
@@ -133,6 +194,7 @@ namespace DEGMA.Controllers
         // POST: Patients/Delete/5
         [HttpPost, ActionName("Delete")]
         [ValidateAntiForgeryToken]
+        [Authorize(Roles = "Doctor")]
         public async Task<IActionResult> DeleteConfirmed(int id)
         {
             var patient = await _context.Patients.FindAsync(id);
@@ -148,6 +210,73 @@ namespace DEGMA.Controllers
         private bool PatientExists(int id)
         {
             return _context.Patients.Any(e => e.PatientId == id);
+        }
+
+        // Shared helper to render the HTML for the PDF
+        private async Task<string> RenderPatientReportHtml(int id)
+        {
+            var patient = await _context.Patients
+                .Include(p => p.Reports)
+                .ThenInclude(r => r.SideEffects)
+                .FirstOrDefaultAsync(p => p.PatientId == id);
+
+            if (patient == null) return null;
+
+            // Render the Razor view to an HTML string
+            var viewResult = _viewEngine.FindView(ControllerContext, "ReportTemplate", false);
+            using var sw = new StringWriter();
+            var viewContext = new ViewContext(
+                ControllerContext,
+                viewResult.View,
+                new ViewDataDictionary<Patient>(new EmptyModelMetadataProvider(), new ModelStateDictionary())
+                {
+                    Model = patient
+                },
+                new TempDataDictionary(HttpContext, _tempDataProvider),
+                sw,
+                new HtmlHelperOptions()
+            );
+            await viewResult.View.RenderAsync(viewContext);
+            return sw.ToString();
+        }
+
+        public async Task<IActionResult> ReportPreview(int id)
+        {
+            var patient = await _context.Patients
+                .Include(p => p.Reports)
+                .ThenInclude(r => r.SideEffects)
+                .FirstOrDefaultAsync(p => p.PatientId == id);
+
+            if (patient == null) return NotFound();
+            return View("ReportTemplate", patient);
+        }
+
+        public async Task<IActionResult> DownloadReport(int id)
+        {
+            var html = await RenderPatientReportHtml(id);
+            if (html == null) return NotFound();
+
+            var doc = new HtmlToPdfDocument()
+            {
+                GlobalSettings = {
+            ColorMode = ColorMode.Color,
+            Orientation = Orientation.Portrait,
+            PaperSize = PaperKind.A4,
+            Margins = new MarginSettings { Top = 0, Bottom = 0, Left = 0, Right = 0 }
+        },
+                Objects = {
+            new ObjectSettings {
+                HtmlContent = html,
+                WebSettings = { DefaultEncoding = "utf-8" }
+            }
+        }
+            };
+
+            var pdf = _pdfConverter.Convert(doc);
+            var patient = await _context.Patients.FindAsync(id);
+            var filename = $"Report_{patient.Surname}_{DateTime.Now:yyyyMMdd}.pdf";
+
+            return File(pdf, "application/pdf", filename);
         }
     }
 }

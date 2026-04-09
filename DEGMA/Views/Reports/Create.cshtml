@@ -14,7 +14,8 @@
                         <p class="text-muted">Record weekly progress, dosage, and observe side effects.</p>
                     </div>
 
-                    <form asp-action="Create">
+                    <form asp-action="Create" method="post">
+                        @Html.AntiForgeryToken()
                         <div asp-validation-summary="ModelOnly" class="text-danger"></div>
 
                         <div class="row mb-4">
@@ -57,8 +58,9 @@
                             </div>
 
                             <div class="col-md-4">
-                                <label asp-for="WeightChange" class="form-label fw-bold small text-uppercase">Weight Change</label>
-                                <input asp-for="WeightChange" id="weightChange" class="form-control" readonly />
+                                <label class="form-label fw-bold small text-uppercase">Weight Change</label>
+                                <input type="text" id="weightChange" class="form-control" readonly />
+                                <input type="hidden" name="WeightChange" value="0" />
                             </div>
 
                             <div class="col-md-8">
@@ -91,6 +93,7 @@
                             <a asp-action="Index" class="text-decoration-none text-muted">
                                 <i class="bi bi-arrow-left"></i> Back to Reports
                             </a>
+
                             <button type="submit" class="btn btn-success px-5 py-2 fw-bold">Submit Report</button>
                         </div>
                     </form>
@@ -106,61 +109,68 @@
     }
     
     <script>
+    let patientStartDate = "";
+    let startingWeight = 0;
+    let lastWeight = 0;
 
-        let patientStartDate = "";
-        let startingWeight = 0;
+    // Functions defined at the top level, outside document.ready
+    function calculateWeek() {
+        if (!patientStartDate || !$('#reportDate').val()) return;
 
-        $(document).ready(function() {
-            $('#patientSelector').select2({ theme: 'bootstrap-5' });
+        const start = new Date(patientStartDate);
+        const report = new Date($('#reportDate').val());
 
-            // WHEN PATIENT IS SELECTED
-            $('#patientSelector').on('change', function() {
-                const patientId = $(this).val();
-                if (!patientId) return;
+        if (isNaN(start) || isNaN(report)) return;
 
-                // Call our API to get patient info
-                fetch(`/Reports/GetPatientData/${patientId}`)
-                    .then(response => response.json())
-                    .then(data => {
-                        $('#reportNumber').val(data.nextReportNumber);
-                        patientStartDate = data.startDate;
-                        startingWeight = data.startingWeight;
-                        calculateWeek(); // Recalculate week based on this patient's start date
-                    });
-            });
+        const diffTime = report - start;
 
-            // WHEN DATE OR WEIGHT CHANGES
-            $('#reportDate').on('change', calculateWeek);
-            $('#currentWeight').on('input', calculateWeightChange);
+        if (diffTime < 0) {
+            $('[id="WeekNumber"]').val(1);
+            return;
+        }
 
-            function calculateWeek() {
-                if (!patientStartDate || !$('#reportDate').val()) return;
+        const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+        const weekNum = Math.max(1, Math.floor(diffDays / 7) + 1);
+        $('[id="WeekNumber"]').val(weekNum);
+    }
 
-                const start = new Date(patientStartDate);
-                const report = new Date($('#reportDate').val());
-            
-                // Calculate difference in weeks
-                const diffTime = Math.abs(report - start);
-                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-                const weekNum = Math.floor(diffDays / 7);
+    function calculateWeightChange() {
+        const current = parseFloat($('[id="Weight"]').val());
+        if (isNaN(current) || lastWeight === 0) return;
 
-                $('#weekNumber').val(weekNum);
-            }
+        const change = (current - lastWeight).toFixed(2);
+        $('#weightChange').val(change); // lowercase w to match id="weightChange"
+    }
 
-            function calculateWeightChange() {
-                const current = parseFloat($('#currentWeight').val());
-                if (isNaN(current) || startingWeight === 0) return;
-
-                const change = current - startingWeight;
-                $('#weightChange').val(change.toFixed(2));
-            }
+    $(document).ready(function () {
+        // Tell jQuery validator to include readonly fields
+        $.validator.setDefaults({
+        ignore: []
         });
-        $(document).ready(function() {
-            // Activate the searchable dropdown
-            $('#patientSelector').select2({
-                theme: 'bootstrap-5',
-                width: '100%'
-            });
+        $('#patientSelector').select2({
+            theme: 'bootstrap-5',
+            width: '100%'
         });
-    </script>
+
+        $('#patientSelector').on('change', function () {
+            const patientId = $(this).val();
+            if (!patientId) return;
+
+            fetch(`/Reports/GetPatientData/${patientId}`)
+                .then(response => response.json())
+                .then(data => {
+                    $('[id="ReportNumber"]').val(data.nextReportNumber);
+                    patientStartDate = data.startDate;
+                    startingWeight = data.startingWeight;
+                    lastWeight = data.lastWeight;
+
+                    calculateWeek();
+                    calculateWeightChange();
+                });
+        });
+
+        $('#reportDate').on('change', calculateWeek);
+        $('[id="Weight"]').on('input', calculateWeightChange);
+    });
+</script>
 }

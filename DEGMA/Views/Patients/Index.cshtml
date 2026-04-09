@@ -1,18 +1,69 @@
-﻿<div class="container">
+﻿@model IEnumerable<DEGMA.Models.Patient>
+
+<div class="container">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h2 class="fw-bold">Patient Directory</h2>
         <a asp-action="Create" class="btn btn-primary">+ Add New Patient</a>
     </div>
+
+    @* Search Bar *@
+    <form asp-action="Index" method="get" class="mb-3 d-flex gap-2">
+        <input type="hidden" name="sortOrder" value="@ViewData["CurrentSort"]" />
+        <input type="text"
+               name="searchString"
+               value="@ViewData["CurrentFilter"]"
+               class="form-control"
+               placeholder="Search by name or date of birth..." />
+        <button type="submit" class="btn btn-outline-primary">Search</button>
+        <a asp-action="Index" class="btn btn-outline-secondary">Clear</a>
+    </form>
 
     <div class="card p-0">
         <div class="table-responsive">
             <table class="table table-hover mb-0">
                 <thead>
                     <tr>
-                        <th class="ps-4">Patient Name</th>
+                        <th class="ps-4">
+                            <a asp-action="Index"
+                               asp-route-sortOrder="@ViewData["NameSortParam"]"
+                               asp-route-searchString="@ViewData["CurrentFilter"]"
+                               class="text-decoration-none text-reset">
+                                Patient Name
+                                @if (ViewData["CurrentSort"]?.ToString() == "name") { <span>▲</span> }
+                                else if (ViewData["CurrentSort"]?.ToString() == "name_desc") { <span>▼</span> }
+                            </a>
+                        </th>
                         <th>Email</th>
-                        <th>Date of Birth</th>
-                        <th>Starting Weight</th>
+                        <th>
+                            <a asp-action="Index"
+                               asp-route-sortOrder="@ViewData["AgeSortParam"]"
+                               asp-route-searchString="@ViewData["CurrentFilter"]"
+                               class="text-decoration-none text-reset">
+                                Date of Birth
+                                @if (ViewData["CurrentSort"]?.ToString() == "age") { <span>▲</span> }
+                                else if (ViewData["CurrentSort"]?.ToString() == "age_desc") { <span>▼</span> }
+                            </a>
+                        </th>
+                        <th>
+                            <a asp-action="Index"
+                               asp-route-sortOrder="@ViewData["WeightSortParam"]"
+                               asp-route-searchString="@ViewData["CurrentFilter"]"
+                               class="text-decoration-none text-reset">
+                                Starting Weight
+                                @if (ViewData["CurrentSort"]?.ToString() == "weight") { <span>▲</span> }
+                                else if (ViewData["CurrentSort"]?.ToString() == "weight_desc") { <span>▼</span> }
+                            </a>
+                        </th>
+                        <th>
+                            <a asp-action="Index"
+                               asp-route-sortOrder="@ViewData["RecentSortParam"]"
+                               asp-route-searchString="@ViewData["CurrentFilter"]"
+                               class="text-decoration-none text-reset">
+                                Recent Input
+                                @if (ViewData["CurrentSort"]?.ToString() == "recent") { <span>▲</span> }
+                                else if (ViewData["CurrentSort"]?.ToString() == "recent_desc") { <span>▼</span> }
+                            </a>
+                        </th>
                         <th class="text-end pe-4">Actions</th>
                     </tr>
                 </thead>
@@ -24,6 +75,12 @@
                             <td>@item.Email</td>
                             <td>@item.DateOfBirth</td>
                             <td>@item.StartingWeight kg</td>
+                            <td>
+                                @{
+                                    var latestReport = item.Reports.OrderByDescending(r => r.Date).FirstOrDefault();
+                                }
+                                @(latestReport != null ? latestReport.Date.ToString() : "No reports yet")
+                            </td>
                             <td class="text-end pe-4">
                                 <a asp-action="Edit" asp-route-id="@item.PatientId" class="btn btn-sm btn-outline-secondary border-0">Edit</a>
                                 <a asp-action="Details" asp-route-id="@item.PatientId" class="btn btn-sm btn-outline-primary border-0">Profile</a>

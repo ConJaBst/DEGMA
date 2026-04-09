@@ -1,15 +1,13 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
+﻿using DEGMA.Data;
+using DEGMA.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
-using DEGMA.Data;
-using DEGMA.Models;
 
 namespace DEGMA.Controllers
 {
+    [Authorize]
     public class ReportsController : Controller
     {
         private readonly ApplicationDbContext _context;
@@ -47,6 +45,7 @@ namespace DEGMA.Controllers
         }
 
         // GET: Reports/Create
+        [Authorize(Roles = "Doctor")]
         public IActionResult Create()
         {
             // This sends your patients to the dropdown (already there)
@@ -63,16 +62,30 @@ namespace DEGMA.Controllers
         // For more details, see http://go.microsoft.com/fwlink/?LinkId=317598.
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [Authorize(Roles = "Doctor")]
         public async Task<IActionResult> Create([Bind("ReportId,ReportNumber,WeekNumber,Weight,Dosage,WeightChange,Notes,PatientId")] Report report, int[] selectedSideEffects)
         {
+            foreach (var key in ModelState.Keys)
+            {
+                var state = ModelState[key];
+                foreach (var error in state.Errors)
+                {
+                    Console.WriteLine($"Field: {key}, Error: {error.ErrorMessage}");
+                }
+            }
             if (ModelState.IsValid)
             {
-                        var patient = await _context.Patients.FindAsync(report.PatientId);
-                        if (patient != null)
-                        {
-                            report.WeightChange = report.Weight - patient.StartingWeight;
-                        }
-                        if (selectedSideEffects != null)
+                var patient = await _context.Patients
+                    .Include(p => p.Reports)
+                    .FirstOrDefaultAsync(p => p.PatientId == report.PatientId);
+
+                if (patient != null)
+                {
+                    var lastReport = patient.Reports.OrderByDescending(r => r.WeekNumber).FirstOrDefault();
+                    var baseline = lastReport?.Weight ?? patient.StartingWeight;
+                    report.WeightChange = report.Weight - baseline;
+                }
+                if (selectedSideEffects != null)
                 {
                     foreach (var sideEffectId in selectedSideEffects)
                     {
@@ -95,6 +108,7 @@ namespace DEGMA.Controllers
         }
 
         // GET: Reports/Edit/5
+        [Authorize(Roles = "Doctor")]
         public async Task<IActionResult> Edit(int? id)
         {
             if (id == null)
@@ -116,6 +130,7 @@ namespace DEGMA.Controllers
         // For more details, see http://go.microsoft.com/fwlink/?LinkId=317598.
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [Authorize(Roles = "Doctor")]
         public async Task<IActionResult> Edit(int id, [Bind("ReportId,ReportNumber,WeekNumber,Weight,Dosage,WeightChange,Notes,patientId")] Report report)
         {
             if (id != report.ReportId)
@@ -148,6 +163,7 @@ namespace DEGMA.Controllers
         }
 
         // GET: Reports/Delete/5
+        [Authorize(Roles = "Doctor")]
         public async Task<IActionResult> Delete(int? id)
         {
             if (id == null)
@@ -169,6 +185,7 @@ namespace DEGMA.Controllers
         // POST: Reports/Delete/5
         [HttpPost, ActionName("Delete")]
         [ValidateAntiForgeryToken]
+        [Authorize(Roles = "Doctor")]
         public async Task<IActionResult> DeleteConfirmed(int id)
         {
             var report = await _context.Reports.FindAsync(id);
@@ -195,11 +212,17 @@ namespace DEGMA.Controllers
 
             if (patient == null) return NotFound();
 
+            // Get the most recent report's weight, or starting weight if no reports yet
+            var lastWeight = patient.Reports.Any()
+                ? patient.Reports.OrderByDescending(r => r.WeekNumber).First().Weight
+                : patient.StartingWeight;
+
             return Json(new
             {
                 nextReportNumber = patient.Reports.Count + 1,
                 startDate = patient.TreatmentStartDate.ToString("yyyy-MM-dd"),
-                startingWeight = patient.StartingWeight
+                startingWeight = patient.StartingWeight,
+                lastWeight = lastWeight
             });
         }
     }

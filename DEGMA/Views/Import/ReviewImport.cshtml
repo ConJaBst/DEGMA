@@ -4,14 +4,13 @@
     ViewData["Title"] = "Review Import";
 }
 
-<div class="container-fluid px-4 mt-4">
+<div class="px-3 mt-4">
     <h2 class="fw-bold text-white mb-1">Review CSV Import</h2>
     <p class="text-muted mb-4">Review all rows before importing. Fix any issues highlighted in red.</p>
 
     <form asp-controller="Import" asp-action="Confirm" method="post">
         @Html.AntiForgeryToken()
 
-        @* New Side Effects Confirmation *@
         @if (Model.NewSideEffectsToCreate.Any())
         {
             <div class="card border-warning mb-4" style="background:#16213e; border-color:#ffc107 !important;">
@@ -20,7 +19,7 @@
                         <i class="bi bi-exclamation-triangle me-2"></i>New Side Effects Detected
                     </h6>
                     <p class="text-muted small mb-3">
-                        The following side effects don't exist in the database yet. 
+                        The following side effects don't exist in the database yet.
                         Check the box to create them automatically:
                     </p>
                     <div class="d-flex flex-wrap gap-2 mb-3">
@@ -30,7 +29,7 @@
                         }
                     </div>
                     <div class="form-check">
-                        <input type="checkbox" class="form-check-input" 
+                        <input type="checkbox" class="form-check-input"
                                name="ConfirmNewSideEffects" value="true" id="confirmSE" />
                         <label class="form-check-label text-white" for="confirmSE">
                             Yes, create these side effects automatically
@@ -40,7 +39,6 @@
             </div>
         }
 
-        @* Duplicate Actions Bulk Buttons *@
         @if (Model.Rows.Any(r => r.IsDuplicate))
         {
             <div class="card mb-4 border-info" style="background:#16213e;">
@@ -49,17 +47,22 @@
                         <i class="bi bi-copy me-1"></i>Duplicate Actions (All):
                     </span>
                     <button type="button" class="btn btn-outline-secondary btn-sm"
-                            onclick="setAllDuplicates('skip')">Skip All Duplicates</button>
+                            onclick="setAllDuplicates('skip')">
+                        Skip All Duplicates
+                    </button>
                     <button type="button" class="btn btn-outline-warning btn-sm"
-                            onclick="setAllDuplicates('overwrite')">Overwrite All</button>
+                            onclick="setAllDuplicates('overwrite')">
+                        Overwrite All
+                    </button>
                     <button type="button" class="btn btn-outline-info btn-sm"
-                            onclick="setAllDuplicates('addduplicate')">Add All as Duplicate</button>
+                            onclick="setAllDuplicates('addduplicate')">
+                        Add All as Duplicate
+                    </button>
                 </div>
             </div>
         }
 
-        @* Stats Bar *@
-        <div class="d-flex gap-4 mb-3">
+        <div class="d-flex flex-wrap gap-3 mb-3">
             <span class="text-muted small">
                 Total: <strong class="text-white">@Model.Rows.Count</strong>
             </span>
@@ -74,10 +77,9 @@
             </span>
         </div>
 
-        @* Main Table *@
-        <div class="card shadow-sm border-0 mb-4">
-            <div class="table-responsive">
-                <table class="table table-hover align-middle mb-0" style="font-size:12px;">
+        <div class="card shadow-sm border-0 mb-4" style="width:100%; overflow:hidden;">
+            <div style="overflow-x:auto; width:100%;">
+                <table class="table table-hover align-middle mb-0" style="font-size:12px; min-width:1200px; width:100%;">
                     <thead>
                         <tr>
                             <th class="ps-3">#</th>
@@ -105,37 +107,57 @@
                             <tr class="@rowClass">
                                 <td class="ps-3 text-muted">@(row.RowIndex + 1)</td>
 
-                                <td><input type="text" name="Rows[@i].Firstname"
-                                     value="@row.Firstname" class="form-control form-control-sm" /></td>
-                                <td><input type="text" name="Rows[@i].Surname"
-                                     value="@row.Surname" class="form-control form-control-sm" /></td>
-                                <td><input type="text" name="Rows[@i].DateOfBirth"
-                                     value="@row.DateOfBirth" class="form-control form-control-sm" style="width:105px" /></td>
-                                <td><input type="text" name="Rows[@i].Email"
-                                     value="@row.Email" class="form-control form-control-sm" /></td>
-                                <td><input type="text" name="Rows[@i].StartingWeight"
-                                     value="@row.StartingWeight" class="form-control form-control-sm" style="width:80px" /></td>
-                                <td><input type="text" name="Rows[@i].WeekNumber"
-                                     value="@row.WeekNumber" class="form-control form-control-sm" style="width:55px" /></td>
-                                <td><input type="text" name="Rows[@i].Date"
-                                     value="@row.Date" class="form-control form-control-sm" style="width:105px" /></td>
-                                <td><input type="text" name="Rows[@i].Weight"
-                                     value="@row.Weight" class="form-control form-control-sm" style="width:70px" /></td>
-                                <td><input type="text" name="Rows[@i].Dosage"
-                                     value="@row.Dosage" class="form-control form-control-sm" style="width:70px" /></td>
-                                <td><input type="text" name="Rows[@i].SideEffects"
-                                     value="@row.SideEffects" class="form-control form-control-sm" /></td>
-                                <td><input type="text" name="Rows[@i].Notes"
-                                     value="@row.Notes" class="form-control form-control-sm" /></td>
+                                <td>
+                                    <input type="text" name="Rows[@i].Firstname"
+                                           value="@row.Firstname" class="form-control form-control-sm" style="min-width:80px;" />
+                                </td>
+                                <td>
+                                    <input type="text" name="Rows[@i].Surname"
+                                           value="@row.Surname" class="form-control form-control-sm" style="min-width:80px;" />
+                                </td>
+                                <td>
+                                    <input type="text" name="Rows[@i].DateOfBirth"
+                                           value="@row.DateOfBirth" class="form-control form-control-sm" style="width:105px;" />
+                                </td>
+                                <td>
+                                    <input type="text" name="Rows[@i].Email"
+                                           value="@row.Email" class="form-control form-control-sm" style="min-width:120px; max-width:160px;" />
+                                </td>
+                                <td>
+                                    <input type="text" name="Rows[@i].StartingWeight"
+                                           value="@row.StartingWeight" class="form-control form-control-sm" style="width:80px;" />
+                                </td>
+                                <td>
+                                    <input type="text" name="Rows[@i].WeekNumber"
+                                           value="@row.WeekNumber" class="form-control form-control-sm" style="width:55px;" />
+                                </td>
+                                <td>
+                                    <input type="text" name="Rows[@i].Date"
+                                           value="@row.Date" class="form-control form-control-sm" style="width:105px;" />
+                                </td>
+                                <td>
+                                    <input type="text" name="Rows[@i].Weight"
+                                           value="@row.Weight" class="form-control form-control-sm" style="width:70px;" />
+                                </td>
+                                <td>
+                                    <input type="text" name="Rows[@i].Dosage"
+                                           value="@row.Dosage" class="form-control form-control-sm" style="width:70px;" />
+                                </td>
+                                <td>
+                                    <input type="text" name="Rows[@i].SideEffects"
+                                           value="@row.SideEffects" class="form-control form-control-sm" style="min-width:100px;" />
+                                </td>
+                                <td>
+                                    <input type="text" name="Rows[@i].Notes"
+                                           value="@row.Notes" class="form-control form-control-sm" style="min-width:120px;" />
+                                </td>
 
-                                @* Hidden fields *@
                                 <input type="hidden" name="Rows[@i].RowIndex" value="@row.RowIndex" />
                                 <input type="hidden" name="Rows[@i].WeightChange" value="@row.WeightChange" />
                                 <input type="hidden" name="Rows[@i].ReportNumber" value="@row.ReportNumber" />
                                 <input type="hidden" name="Rows[@i].TreatmentStartDate" value="@row.TreatmentStartDate" />
                                 <input type="hidden" name="Rows[@i].ExistingPatientId" value="@row.ExistingPatientId" />
 
-                                @* Status column *@
                                 <td>
                                     @if (!row.IsValid)
                                     {
@@ -163,13 +185,12 @@
                                     }
                                 </td>
 
-                                @* Duplicate action selector *@
                                 <td>
                                     @if (row.IsDuplicate)
                                     {
                                         <select name="Rows[@i].DuplicateAction"
                                                 class="form-select form-select-sm duplicate-select"
-                                                style="width:140px">
+                                                style="width:140px;">
                                             <option value="skip" selected="@(row.DuplicateAction == "skip")">Skip</option>
                                             <option value="overwrite" selected="@(row.DuplicateAction == "overwrite")">Overwrite</option>
                                             <option value="addduplicate" selected="@(row.DuplicateAction == "addduplicate")">Add as Duplicate</option>
@@ -188,13 +209,11 @@
             </div>
         </div>
 
-        @* Hidden fields for NewSideEffectsToCreate *@
         @for (int i = 0; i < Model.NewSideEffectsToCreate.Count; i++)
         {
             <input type="hidden" name="NewSideEffectsToCreate[@i]" value="@Model.NewSideEffectsToCreate[i]" />
         }
 
-        @* Action Buttons *@
         <div class="d-flex justify-content-between align-items-center mb-5">
             <a asp-controller="Home" asp-action="Index" class="btn btn-outline-secondary">
                 <i class="bi bi-arrow-left me-1"></i> Cancel

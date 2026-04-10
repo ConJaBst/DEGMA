@@ -1,9 +1,10 @@
-﻿using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using DEGMA.Data;
+﻿using DEGMA.Data;
 using DEGMA.Models;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using System.Globalization;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 
 namespace DEGMA.Controllers
 {
@@ -15,63 +16,85 @@ namespace DEGMA.Controllers
         {
             _context = context;
         }
-
         [HttpPost]
-        [ValidateAntiForgeryToken]
         public async Task<IActionResult> Upload(IFormFile csvFile)
         {
             if (csvFile == null || csvFile.Length == 0) return RedirectToAction("Index", "Home");
 
-            var rows = new List<CsvRowViewModel>();
+            var model = new ImportViewModel();
+            var existingSideEffectNames = await _context.SideEffects.Select(s => s.Name).ToListAsync();
+            var detectedNewSideEffects = new HashSet<string>();
+
             using (var reader = new StreamReader(csvFile.OpenReadStream()))
             {
                 await reader.ReadLineAsync(); // Skip header
+                int index = 0;
 
-                int rowIndex = 0;
                 while (!reader.EndOfStream)
                 {
                     var line = await reader.ReadLineAsync();
                     if (string.IsNullOrWhiteSpace(line)) continue;
 
-                    var cols = ParseCsvLine(line);
-                    if (cols.Count < 15) continue; // Basic safety check
+                    // SMART SPLIT: Handles commas inside quotes
+                    var parts = Regex.Split(line, ",(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)");
+
+                    if (parts.Length < 15) continue;
 
                     var row = new CsvRowViewModel
                     {
-                        RowIndex = rowIndex++,
-                        // Matching your 16-column test data exactly:
-                        Firstname = cols[1].Trim(),
-                        Surname = cols[2].Trim(),
-                        DateOfBirth = cols[3].Trim(),
-                        Email = cols[4].Trim(),
-                        StartingWeight = cols[5].Trim(),
-                        TreatmentStartDate = cols[6].Trim(),
-                        ReportNumber = cols[8].Trim(),
-                        WeekNumber = cols[9].Trim(),
-                        Date = cols[10].Trim(),
-                        Weight = cols[11].Trim(),
-                        Dosage = cols[12].Trim(),
-                        WeightChange = cols[13].Trim(),
-                        Notes = cols[14].Trim(),
-                        SideEffects = cols.Count > 15 ? cols[15].Trim() : ""
+                        RowIndex = index++,
+                        // col 0 = PatientId (DB key, skip)
+                        Firstname = Unescape(parts[1]),
+                        Surname = Unescape(parts[2]),
+                        DateOfBirth = Unescape(parts[3]),
+                        Email = Unescape(parts[4]),
+                        StartingWeight = Unescape(parts[5]),
+                        TreatmentStartDate = Unescape(parts[6]),
+                        // col 7 = ReportId (DB key, skip)
+                        ReportNumber = Unescape(parts[8]),
+                        WeekNumber = Unescape(parts[9]),
+                        Date = Unescape(parts[10]),
+                        Weight = Unescape(parts[11]),
+                        Dosage = Unescape(parts[12]),
+                        WeightChange = Unescape(parts[13]),
+                        Notes = Unescape(parts[14]),
+                        SideEffects = parts.Length > 15 ? Unescape(parts[15]) : ""
                     };
 
-                    ValidateRow(row);
-                    await CheckDuplicate(row);
-                    await CheckNewSideEffects(row);
-                    rows.Add(row);
+                    var existingPatient = await _context.Patients.FirstOrDefaultAsync(p => p.Email == row.Email);
+                    if (existingPatient != null)
+                    {
+                        row.IsDuplicate = true;
+                        row.ExistingPatientId = existingPatient.PatientId;
+                        row.DuplicateAction = "skip";
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(row.SideEffects))
+                    {
+                        foreach (var name in row.SideEffects.Split('|'))
+                        {
+                            var trimmed = name.Trim();
+                            if (!string.IsNullOrEmpty(trimmed) && !existingSideEffectNames.Contains(trimmed))
+                                detectedNewSideEffects.Add(trimmed);
+                        }
+                    }
+
+                    model.Rows.Add(row);
                 }
             }
 
-            var model = new ImportViewModel
-            {
-                Rows = rows,
-                NewSideEffectsToCreate = rows.SelectMany(r => r.NewSideEffects).Distinct().ToList()
-            };
-
-            HttpContext.Session.SetString("ImportData", JsonSerializer.Serialize(model));
-            return RedirectToAction("Review");
+            model.NewSideEffectsToCreate = detectedNewSideEffects.ToList();
+            return View("ReviewImport", model);
         }
+
+        // Mirrors the backup's Escape() — strips surrounding quotes and unescapes doubled quotes
+        private static string Unescape(string value)
+        {
+            value = value.Trim();
+            if (value.StartsWith('"') && value.EndsWith('"'))
+                value = value[1..^1].Replace("\"\"", "\"");
+            return value;
+        }   
 
         [HttpGet]
         public IActionResult Review()

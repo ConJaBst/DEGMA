@@ -9,6 +9,13 @@
 <p>
     <a asp-action="Create">Create New</a>
 </p>
+<form asp-controller="Reports" asp-action="ClearData" method="post"
+      onsubmit="return confirm('Are you sure? This will permanently delete all patients, reports and side effects. This cannot be undone.');">
+    @Html.AntiForgeryToken()
+    <button type="submit" class="btn btn-danger fw-bold">
+        <i class="bi bi-trash me-1"></i> Clear All Data
+    </button>
+</form>
 <div class="table-responsive">
     <table class="table table-hover">
     <thead>

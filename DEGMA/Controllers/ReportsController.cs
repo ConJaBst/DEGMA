@@ -225,5 +225,16 @@ namespace DEGMA.Controllers
                 lastWeight = lastWeight
             });
         }
+        [HttpPost]
+        [Authorize(Roles = "Doctor")]
+        public async Task<IActionResult> ClearData()
+        {
+            await _context.Database.ExecuteSqlRawAsync("DELETE FROM ReportSideEffect");
+            await _context.Database.ExecuteSqlRawAsync("DELETE FROM Reports");
+            await _context.Database.ExecuteSqlRawAsync("DELETE FROM Patients");
+            await _context.Database.ExecuteSqlRawAsync("DELETE FROM SideEffects");
+
+            return RedirectToAction("Index", "Home");
+        }
     }
 }

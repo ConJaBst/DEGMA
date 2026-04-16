@@ -168,7 +168,7 @@ namespace DEGMA.Controllers
                     WeekNumber = int.Parse(row.WeekNumber),
                     Date = DateOnly.Parse(row.Date, CultureInfo.InvariantCulture),
                     Weight = double.Parse(row.Weight, CultureInfo.InvariantCulture),
-                    Dosage = double.Parse(row.Dosage, CultureInfo.InvariantCulture),
+                    Dosage = decimal.Parse(row.Dosage, CultureInfo.InvariantCulture),
                     WeightChange = double.Parse(row.WeightChange, CultureInfo.InvariantCulture),
                     Notes = row.Notes ?? string.Empty
                 };

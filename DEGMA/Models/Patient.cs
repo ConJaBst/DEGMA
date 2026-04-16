@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.SignalR;
+using Microsoft.EntityFrameworkCore;
 using System.ComponentModel.DataAnnotations;
 namespace DEGMA.Models
 {
@@ -21,7 +22,10 @@ namespace DEGMA.Models
         public int ReportNumber { get; set; }
         public int WeekNumber { get; set; }
         public double Weight { get; set; }
-        public double Dosage { get; set; }
+        
+        [Required]
+        [Range(0, 10)]
+        public decimal Dosage { get; set; }
         public double WeightChange { get; set; }
         public string? Notes { get; set; }
         [DataType(DataType.Date)]
@@ -30,6 +34,7 @@ namespace DEGMA.Models
         public int PatientId { get; set; }
         public Patient? Patient { get; set; }
     }
+    [Index(nameof(Name), IsUnique = true)]
     public class SideEffect
     {
         public int SideEffectId { get; set; }

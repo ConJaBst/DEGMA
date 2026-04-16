@@ -58,8 +58,8 @@ namespace DEGMA.Migrations
                     b.Property<DateOnly>("Date")
                         .HasColumnType("TEXT");
 
-                    b.Property<double>("Dosage")
-                        .HasColumnType("REAL");
+                    b.Property<decimal>("Dosage")
+                        .HasColumnType("TEXT");
 
                     b.Property<string>("Notes")
                         .HasColumnType("TEXT");
@@ -97,6 +97,9 @@ namespace DEGMA.Migrations
                         .HasColumnType("TEXT");
 
                     b.HasKey("SideEffectId");
+
+                    b.HasIndex("Name")
+                        .IsUnique();
 
                     b.ToTable("SideEffects");
                 });

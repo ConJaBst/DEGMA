@@ -45,7 +45,7 @@
                             </div>
                             <div class="col-md-4">
                                 <label asp-for="Dosage" class="form-label fw-bold small text-uppercase">Dosage (mg)</label>
-                                <input asp-for="Dosage" class="form-control" />
+                                <input asp-for="Dosage" class="form-control" type="number" step="0.01" />
                                 <span asp-validation-for="Dosage" class="text-danger"></span>
                             </div>
                         </div>

@@ -6,6 +6,8 @@
 		<ImplicitUsings>enable</ImplicitUsings>
 		<OutputType>Exe</OutputType>
 
+		<NoWarn>NU1901</NoWarn>
+
 		<!-- Single File Settings -->
 		<PublishSingleFile>true</PublishSingleFile>
 		<SelfContained>true</SelfContained>

@@ -49,7 +49,15 @@ namespace DEGMA.Controllers
         public IActionResult Create()
         {
             // This sends your patients to the dropdown (already there)
-            ViewData["PatientId"] = new SelectList(_context.Patients, "PatientId", "Firstname", "Surname");
+            ViewData["PatientId"] = new SelectList(
+                _context.Patients.Select(p => new
+                {
+                    p.PatientId,
+                    FullName = p.Firstname + " " + p.Surname
+                }),
+                "PatientId",
+                "FullName"
+            );
 
             // ADD THIS LINE: This sends your Side Effects dictionary to the screen
             ViewBag.AllSideEffects = _context.SideEffects.ToList();
@@ -102,7 +110,15 @@ namespace DEGMA.Controllers
                 await _context.SaveChangesAsync();
                 return RedirectToAction(nameof(Index));
             }
-            ViewData["PatientId"] = new SelectList(_context.Patients, "PatientId", "Firstname", report.PatientId);
+            ViewData["PatientId"] = new SelectList(
+                _context.Patients.Select(p => new {
+                    p.PatientId,
+                    FullName = p.Firstname + " " + p.Surname
+                }),
+                "PatientId",
+                "FullName",
+                report.PatientId
+            );
             ViewBag.AllSideEffects = _context.SideEffects.ToList();
             return View(report);
         }

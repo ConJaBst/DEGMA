@@ -4,79 +4,70 @@
     ViewData["Title"] = "Index";
 }
 
-<h1>Index</h1>
+<h1>Reports</h1>
 
 <p>
-    <a asp-action="Create">Create New</a>
+    <a asp-action="Create" class="btn btn-success">Create New</a>
 </p>
-<form asp-controller="Reports" asp-action="ClearData" method="post"
-      onsubmit="return confirm('Are you sure? This will permanently delete all patients, reports and side effects. This cannot be undone.');">
-    @Html.AntiForgeryToken()
-    <button type="submit" class="btn btn-danger fw-bold">
-        <i class="bi bi-trash me-1"></i> Clear All Data
-    </button>
-</form>
+
+<div class="mb-3">
+    <button id="toggleBtn" class="btn btn-primary">Show All</button>
+</div>
+
 <div class="table-responsive">
     <table class="table table-hover">
-    <thead>
-        <tr>
-            <th>
-                @Html.DisplayNameFor(model => model.ReportNumber)
-            </th>
-            <th>
-                @Html.DisplayNameFor(model => model.WeekNumber)
-            </th>
-            <th>
-                @Html.DisplayNameFor(model => model.Weight)
-            </th>
-            <th>
-                @Html.DisplayNameFor(model => model.Dosage)
-            </th>
-            <th>
-                @Html.DisplayNameFor(model => model.WeightChange)
-            </th>
-            <th>
-                @Html.DisplayNameFor(model => model.Notes)
-            </th>
-            <th>
-                @Html.DisplayNameFor(model => model.Patient)
-            </th>
-            <th></th>
-        </tr>
-    </thead>
-    <tbody>
-        @foreach (var item in Model)
-        {
+        <thead>
             <tr>
-                <td>
-                    @Html.DisplayFor(modelItem => item.ReportNumber)
-                </td>
-                <td>
-                    @Html.DisplayFor(modelItem => item.WeekNumber)
-                </td>
-                <td>
-                    @Html.DisplayFor(modelItem => item.Weight)
-                </td>
-                <td>
-                    @Html.DisplayFor(modelItem => item.Dosage)
-                </td>
-                <td>
-                    @Html.DisplayFor(modelItem => item.WeightChange)
-                </td>
-                <td>
-                    @Html.DisplayFor(modelItem => item.Notes)
-                </td>
-                <td>
-                    @* This is the line that displays the patient's name *@
-                    @Html.DisplayFor(modelItem => item.Patient.Firstname)
-                </td>
-                <td>
-                    <a asp-action="Edit" asp-route-id="@item.ReportId">Edit</a> |
-                    <a asp-action="Details" asp-route-id="@item.ReportId">Details</a> |
-                    <a asp-action="Delete" asp-route-id="@item.ReportId">Delete</a>
-                </td>
+                <th>@Html.DisplayNameFor(model => model.ReportNumber)</th>
+                <th>@Html.DisplayNameFor(model => model.WeekNumber)</th>
+                <th>@Html.DisplayNameFor(model => model.Weight)</th>
+                <th>@Html.DisplayNameFor(model => model.Dosage)</th>
+                <th>@Html.DisplayNameFor(model => model.WeightChange)</th>
+                <th>@Html.DisplayNameFor(model => model.Notes)</th>
+                <th>Patient</th>
+                <th></th>
             </tr>
-        }
-    </tbody>
-</table>
+        </thead>
+        <tbody id="reportTable">
+            @{
+                int index = 0;
+            }
+            @foreach (var item in Model)
+            {
+                <tr class="report-row @(index >= 10 ? "d-none extra-row" : "")">
+                    <td>@item.ReportNumber</td>
+                    <td>@item.WeekNumber</td>
+                    <td>@item.Weight.ToString("0.00")</td>
+                    <td>@item.Dosage.ToString("0.00")</td>
+                    <td>@item.WeightChange.ToString("0.00")</td>
+                    <td>@item.Notes</td>
+                    <td>@(item.Patient?.Firstname + " " + item.Patient?.Surname)</td>
+                    <td>
+                        <a asp-action="Edit" asp-route-id="@item.ReportId">Edit</a> |
+                        <a asp-action="Details" asp-route-id="@item.ReportId">Details</a> |
+                        <a asp-action="Delete" asp-route-id="@item.ReportId">Delete</a>
+                    </td>
+                </tr>
+                index++;
+            }
+        </tbody>
+    </table>
 </div>
+
+@section Scripts {
+    <script>
+        let expanded = false;
+
+        document.getElementById("toggleBtn").addEventListener("click", function () {
+            const extraRows = document.querySelectorAll(".extra-row");
+
+            expanded = !expanded;
+
+            extraRows.forEach(row => {
+                row.classList.toggle("d-none", !expanded);
+            });
+
+            this.textContent = expanded ? "Show Less" : "Show All";
+        });
+    </script>
+}

@@ -29,7 +29,7 @@ namespace DEGMA.Controllers
                 AverageWeightLoss = reports.Any() ? reports.Average(r => r.WeightChange) * -1 : 0,
 
                 // 1. Total Dosage
-                TotalDosageAdministered = reports.Sum(r => r.Dosage),
+                TotalDosageAdministered = Math.Round((double)reports.Sum(r => r.Dosage)),
 
                 // 2. Most Common Side Effect
                 MostCommonSideEffect = reports.SelectMany(r => r.SideEffects)

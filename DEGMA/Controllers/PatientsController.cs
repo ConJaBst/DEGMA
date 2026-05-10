@@ -9,10 +9,6 @@ using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.AspNetCore.Mvc.ViewEngines;
 using Microsoft.AspNetCore.Mvc.ViewFeatures;
 using Microsoft.EntityFrameworkCore;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 
 namespace DEGMA.Controllers
 {
@@ -88,7 +84,8 @@ namespace DEGMA.Controllers
             if (id == null) return NotFound();
 
             var patient = await _context.Patients
-                .Include(p => p.Reports) // <--- Add this to get their reports
+                .Include(p => p.Reports.OrderBy(r => r.Date))
+                .ThenInclude(r => r.SideEffects)
                 .FirstOrDefaultAsync(m => m.PatientId == id);
 
             if (patient == null) return NotFound();
@@ -136,18 +133,15 @@ namespace DEGMA.Controllers
             return View(patient);
         }
 
-        // POST: Patients/Edit/5
-        // To protect from overposting attacks, enable the specific properties you want to bind to.
-        // For more details, see http://go.microsoft.com/fwlink/?LinkId=317598.
         [HttpPost]
         [ValidateAntiForgeryToken]
-        [Authorize(Roles = "Doctor")]
-        public async Task<IActionResult> Edit(int id, [Bind("PatientId,Firstname,Surname,DateOfBirth,Email,StartingWeight")] Patient patient)
+        public async Task<IActionResult> Edit(int id,
+        [Bind("PatientId,Firstname,Surname,DateOfBirth,Email,StartingWeight,TreatmentStartDate")]
+        Patient patient)
         {
-            if (id != patient.PatientId)
-            {
-                return NotFound();
-            }
+            if (id != patient.PatientId) return NotFound();
+
+            ModelState.Remove("Reports");
 
             if (ModelState.IsValid)
             {
@@ -158,17 +152,13 @@ namespace DEGMA.Controllers
                 }
                 catch (DbUpdateConcurrencyException)
                 {
-                    if (!PatientExists(patient.PatientId))
-                    {
-                        return NotFound();
-                    }
-                    else
-                    {
-                        throw;
-                    }
+                    if (!PatientExists(patient.PatientId)) return NotFound();
+                    else throw;
                 }
-                return RedirectToAction(nameof(Index));
+
+                return RedirectToAction("Details", new { id = patient.PatientId });
             }
+
             return View(patient);
         }
 
@@ -197,13 +187,23 @@ namespace DEGMA.Controllers
         [Authorize(Roles = "Doctor")]
         public async Task<IActionResult> DeleteConfirmed(int id)
         {
-            var patient = await _context.Patients.FindAsync(id);
+            var patient = await _context.Patients
+                .Include(p => p.Reports)
+                    .ThenInclude(r => r.SideEffects)
+                .FirstOrDefaultAsync(p => p.PatientId == id);
+
             if (patient != null)
             {
+                // Clear side effect links on each report first
+                foreach (var report in patient.Reports)
+                    report.SideEffects.Clear();
+
+                await _context.SaveChangesAsync();
+
                 _context.Patients.Remove(patient);
+                await _context.SaveChangesAsync();
             }
 
-            await _context.SaveChangesAsync();
             return RedirectToAction(nameof(Index));
         }
 
@@ -244,7 +244,6 @@ namespace DEGMA.Controllers
         {
             var patient = await _context.Patients
                 .Include(p => p.Reports)
-                .ThenInclude(r => r.SideEffects)
                 .FirstOrDefaultAsync(p => p.PatientId == id);
 
             if (patient == null) return NotFound();
@@ -253,30 +252,63 @@ namespace DEGMA.Controllers
 
         public async Task<IActionResult> DownloadReport(int id)
         {
-            var html = await RenderPatientReportHtml(id);
-            if (html == null) return NotFound();
+            var patient = await _context.Patients
+                .Include(p => p.Reports)
+                .FirstOrDefaultAsync(p => p.PatientId == id);
+
+            if (patient == null) return NotFound();
+
+            var html = await RenderViewToString("ReportTemplate", patient);
 
             var doc = new HtmlToPdfDocument()
             {
                 GlobalSettings = {
-            ColorMode = ColorMode.Color,
-            Orientation = Orientation.Portrait,
-            PaperSize = PaperKind.A4,
-            Margins = new MarginSettings { Top = 0, Bottom = 0, Left = 0, Right = 0 }
-        },
+        ColorMode = ColorMode.Color,
+        Orientation = Orientation.Portrait,
+        PaperSize = PaperKind.A4,
+        Margins = new MarginSettings { Top = 10, Bottom = 10, Left = 10, Right = 10 },
+        DPI = 150
+    },
                 Objects = {
-            new ObjectSettings {
-                HtmlContent = html,
-                WebSettings = { DefaultEncoding = "utf-8" }
+        new ObjectSettings {
+            HtmlContent = html,
+            WebSettings = {
+                DefaultEncoding = "utf-8",
+                EnableIntelligentShrinking = true,
+                PrintMediaType = false
             }
         }
+    }
             };
 
             var pdf = _pdfConverter.Convert(doc);
-            var patient = await _context.Patients.FindAsync(id);
-            var filename = $"Report_{patient.Surname}_{DateTime.Now:yyyyMMdd}.pdf";
-
+            var filename = $"Report_{patient.Surname}_{patient.Firstname}_{DateTime.Now:yyyyMMdd}.pdf";
             return File(pdf, "application/pdf", filename);
+        }
+
+
+        private async Task<string> RenderViewToString(string viewName, object model)
+        {
+            ViewData.Model = model;
+            using var sw = new StringWriter();
+
+            var viewResult = _viewEngine.FindView(ControllerContext, viewName, false);
+            var viewContext = new ViewContext(
+                ControllerContext,
+                viewResult.View,
+                new ViewDataDictionary(
+                    new Microsoft.AspNetCore.Mvc.ModelBinding.EmptyModelMetadataProvider(),
+                    new Microsoft.AspNetCore.Mvc.ModelBinding.ModelStateDictionary())
+                {
+                    Model = model
+                },
+                new TempDataDictionary(HttpContext, _tempDataProvider),
+                sw,
+                new HtmlHelperOptions()
+            );
+
+            await viewResult.View.RenderAsync(viewContext);
+            return sw.ToString();
         }
     }
 }

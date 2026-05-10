@@ -20,7 +20,6 @@ namespace DEGMA.Controllers
         // GET: Reports
         public async Task<IActionResult> Index()
         {
-            // We added .Include(r => r.Patient) to load the patient's data
             var applicationDbContext = _context.Reports.Include(r => r.Patient);
             return View(await applicationDbContext.ToListAsync());
         }
@@ -28,27 +27,21 @@ namespace DEGMA.Controllers
         // GET: Reports/Details/5
         public async Task<IActionResult> Details(int? id)
         {
-            if (id == null)
-            {
-                return NotFound();
-            }
+            if (id == null) return NotFound();
 
             var report = await _context.Reports
                 .Include(r => r.Patient)
                 .FirstOrDefaultAsync(m => m.ReportId == id);
-            if (report == null)
-            {
-                return NotFound();
-            }
+
+            if (report == null) return NotFound();
 
             return View(report);
         }
 
         // GET: Reports/Create
         [Authorize(Roles = "Doctor")]
-        public IActionResult Create()
+        public async Task<IActionResult> Create(int? patientId)
         {
-            // This sends your patients to the dropdown (already there)
             ViewData["PatientId"] = new SelectList(
                 _context.Patients.Select(p => new
                 {
@@ -56,31 +49,42 @@ namespace DEGMA.Controllers
                     FullName = p.Firstname + " " + p.Surname
                 }),
                 "PatientId",
-                "FullName"
+                "FullName",
+                patientId
             );
 
-            // ADD THIS LINE: This sends your Side Effects dictionary to the screen
             ViewBag.AllSideEffects = _context.SideEffects.ToList();
+            ViewBag.PreselectedPatientId = patientId;
+
+            // Pre-fill last dosage if coming from a patient profile
+            if (patientId.HasValue)
+            {
+                var lastReport = await _context.Reports
+                    .Where(r => r.PatientId == patientId.Value)
+                    .OrderByDescending(r => r.Date)
+                    .FirstOrDefaultAsync();
+
+                ViewBag.LastDosage = lastReport?.Dosage;
+            }
 
             return View();
         }
 
         // POST: Reports/Create
-        // To protect from overposting attacks, enable the specific properties you want to bind to.
-        // For more details, see http://go.microsoft.com/fwlink/?LinkId=317598.
         [HttpPost]
         [ValidateAntiForgeryToken]
         [Authorize(Roles = "Doctor")]
-        public async Task<IActionResult> Create([Bind("ReportId,ReportNumber,WeekNumber,Weight,Dosage,WeightChange,Notes,PatientId")] Report report, int[] selectedSideEffects)
+        public async Task<IActionResult> Create(
+            [Bind("ReportId,ReportNumber,WeekNumber,Weight,Dosage,Notes,PatientId,Date")]
+            Report report, int[] selectedSideEffects, int? returnPatientId)
         {
-            foreach (var key in ModelState.Keys)
-            {
-                var state = ModelState[key];
-                foreach (var error in state.Errors)
-                {
-                    Console.WriteLine($"Field: {key}, Error: {error.ErrorMessage}");
-                }
-            }
+            ModelState.Remove("WeightChange");
+            ModelState.Remove("Notes");
+            ModelState.Remove("Patient");
+
+            if (report.Date == DateOnly.MinValue)
+                report.Date = DateOnly.FromDateTime(DateTime.Now);
+
             if (ModelState.IsValid)
             {
                 var patient = await _context.Patients
@@ -89,27 +93,40 @@ namespace DEGMA.Controllers
 
                 if (patient != null)
                 {
-                    var lastReport = patient.Reports.OrderByDescending(r => r.WeekNumber).FirstOrDefault();
-                    var baseline = lastReport?.Weight ?? patient.StartingWeight;
+                    var previousReport = patient.Reports
+                        .Where(r => r.Date < report.Date)
+                        .OrderByDescending(r => r.Date)
+                        .FirstOrDefault();
+
+                    var baseline = previousReport?.Weight ?? patient.StartingWeight;
                     report.WeightChange = report.Weight - baseline;
+
+                    report.ReportNumber = patient.Reports
+                        .Count(r => r.Date <= report.Date) + 1;
                 }
+
                 if (selectedSideEffects != null)
                 {
                     foreach (var sideEffectId in selectedSideEffects)
                     {
                         var sideEffect = await _context.SideEffects.FindAsync(sideEffectId);
                         if (sideEffect != null)
-                        {
-                            report.SideEffects.Add(sideEffect); // Link them to this report
-                        }
+                            report.SideEffects.Add(sideEffect);
                     }
                 }
 
-                // 2. Save to database
                 _context.Add(report);
                 await _context.SaveChangesAsync();
-                return RedirectToAction(nameof(Index));
+
+                // Return to whichever patient we came from
+                var targetPatientId = returnPatientId ?? report.PatientId;
+                return RedirectToAction("Details", "Patients", new { id = targetPatientId });
             }
+
+            foreach (var key in ModelState.Keys)
+                foreach (var error in ModelState[key].Errors)
+                    Console.WriteLine($"Field: {key}, Error: {error.ErrorMessage}");
+
             ViewData["PatientId"] = new SelectList(
                 _context.Patients.Select(p => new {
                     p.PatientId,
@@ -120,6 +137,17 @@ namespace DEGMA.Controllers
                 report.PatientId
             );
             ViewBag.AllSideEffects = _context.SideEffects.ToList();
+            ViewBag.PreselectedPatientId = returnPatientId;
+
+            if (returnPatientId.HasValue)
+            {
+                var lastReport = await _context.Reports
+                    .Where(r => r.PatientId == returnPatientId.Value)
+                    .OrderByDescending(r => r.Date)
+                    .FirstOrDefaultAsync();
+                ViewBag.LastDosage = lastReport?.Dosage;
+            }
+
             return View(report);
         }
 
@@ -127,54 +155,86 @@ namespace DEGMA.Controllers
         [Authorize(Roles = "Doctor")]
         public async Task<IActionResult> Edit(int? id)
         {
-            if (id == null)
-            {
-                return NotFound();
-            }
+            if (id == null) return NotFound();
 
-            var report = await _context.Reports.FindAsync(id);
-            if (report == null)
-            {
-                return NotFound();
-            }
-            ViewData["patientId"] = new SelectList(_context.Patients, "PatientId", "PatientId", report.PatientId);
+            var report = await _context.Reports
+                .Include(r => r.SideEffects)
+                .Include(r => r.Patient)
+                .FirstOrDefaultAsync(r => r.ReportId == id);
+
+            if (report == null) return NotFound();
+
+            ViewBag.AllSideEffects = await _context.SideEffects.ToListAsync();
             return View(report);
         }
 
         // POST: Reports/Edit/5
-        // To protect from overposting attacks, enable the specific properties you want to bind to.
-        // For more details, see http://go.microsoft.com/fwlink/?LinkId=317598.
         [HttpPost]
         [ValidateAntiForgeryToken]
         [Authorize(Roles = "Doctor")]
-        public async Task<IActionResult> Edit(int id, [Bind("ReportId,ReportNumber,WeekNumber,Weight,Dosage,WeightChange,Notes,patientId")] Report report)
+        public async Task<IActionResult> Edit(int id,
+            [Bind("ReportId,ReportNumber,WeekNumber,Weight,Dosage,WeightChange,Notes,PatientId,Date")]
+            Report report, int[] selectedSideEffects)
         {
-            if (id != report.ReportId)
-            {
-                return NotFound();
-            }
+            if (id != report.ReportId) return NotFound();
+
+            ModelState.Remove("WeightChange");
+            ModelState.Remove("Notes");
+            ModelState.Remove("Patient");
 
             if (ModelState.IsValid)
             {
                 try
                 {
-                    _context.Update(report);
+                    var existing = await _context.Reports
+                        .Include(r => r.SideEffects)
+                        .FirstOrDefaultAsync(r => r.ReportId == id);
+
+                    if (existing == null) return NotFound();
+
+                    var patient = await _context.Patients
+                        .Include(p => p.Reports)
+                        .FirstOrDefaultAsync(p => p.PatientId == report.PatientId);
+
+                    if (patient != null)
+                    {
+                        var previousReport = patient.Reports
+                            .Where(r => r.Date < report.Date && r.ReportId != report.ReportId)
+                            .OrderByDescending(r => r.Date)
+                            .FirstOrDefault();
+
+                        var baseline = previousReport?.Weight ?? patient.StartingWeight;
+                        existing.WeightChange = report.Weight - baseline;
+                    }
+
+                    existing.WeekNumber = report.WeekNumber;
+                    existing.Date = report.Date;
+                    existing.Weight = report.Weight;
+                    existing.Dosage = report.Dosage;
+                    existing.Notes = report.Notes;
+
+                    existing.SideEffects.Clear();
+                    if (selectedSideEffects != null)
+                    {
+                        foreach (var seId in selectedSideEffects)
+                        {
+                            var se = await _context.SideEffects.FindAsync(seId);
+                            if (se != null) existing.SideEffects.Add(se);
+                        }
+                    }
+
                     await _context.SaveChangesAsync();
                 }
                 catch (DbUpdateConcurrencyException)
                 {
-                    if (!ReportExists(report.ReportId))
-                    {
-                        return NotFound();
-                    }
-                    else
-                    {
-                        throw;
-                    }
+                    if (!ReportExists(report.ReportId)) return NotFound();
+                    else throw;
                 }
-                return RedirectToAction(nameof(Index));
+
+                return RedirectToAction("Details", "Patients", new { id = report.PatientId });
             }
-            ViewData["patientId"] = new SelectList(_context.Patients, "PatientId", "PatientId", report.PatientId);
+
+            ViewBag.AllSideEffects = await _context.SideEffects.ToListAsync();
             return View(report);
         }
 
@@ -182,18 +242,13 @@ namespace DEGMA.Controllers
         [Authorize(Roles = "Doctor")]
         public async Task<IActionResult> Delete(int? id)
         {
-            if (id == null)
-            {
-                return NotFound();
-            }
+            if (id == null) return NotFound();
 
             var report = await _context.Reports
                 .Include(r => r.Patient)
                 .FirstOrDefaultAsync(m => m.ReportId == id);
-            if (report == null)
-            {
-                return NotFound();
-            }
+
+            if (report == null) return NotFound();
 
             return View(report);
         }
@@ -204,10 +259,17 @@ namespace DEGMA.Controllers
         [Authorize(Roles = "Doctor")]
         public async Task<IActionResult> DeleteConfirmed(int id)
         {
-            var report = await _context.Reports.FindAsync(id);
+            var report = await _context.Reports
+                .Include(r => r.SideEffects)
+                .FirstOrDefaultAsync(r => r.ReportId == id);
+
             if (report != null)
             {
+                var patientId = report.PatientId;
+                report.SideEffects.Clear();
                 _context.Reports.Remove(report);
+                await _context.SaveChangesAsync();
+                return RedirectToAction("Details", "Patients", new { id = patientId });
             }
 
             await _context.SaveChangesAsync();
@@ -228,19 +290,23 @@ namespace DEGMA.Controllers
 
             if (patient == null) return NotFound();
 
-            // Get the most recent report's weight, or starting weight if no reports yet
-            var lastWeight = patient.Reports.Any()
-                ? patient.Reports.OrderByDescending(r => r.WeekNumber).First().Weight
-                : patient.StartingWeight;
+            var lastReport = patient.Reports
+                .OrderByDescending(r => r.Date)
+                .FirstOrDefault();
+
+            var lastWeight = lastReport?.Weight ?? patient.StartingWeight;
+            var lastDosage = lastReport?.Dosage;
 
             return Json(new
             {
                 nextReportNumber = patient.Reports.Count + 1,
                 startDate = patient.TreatmentStartDate.ToString("yyyy-MM-dd"),
                 startingWeight = patient.StartingWeight,
-                lastWeight = lastWeight
+                lastWeight = lastWeight,
+                lastDosage = lastDosage
             });
         }
+
         [HttpPost]
         [Authorize(Roles = "Doctor")]
         public async Task<IActionResult> ClearData()

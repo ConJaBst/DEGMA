@@ -1,5 +1,6 @@
 using DEGMA.Data;
 using DEGMA.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Diagnostics;
@@ -14,6 +15,35 @@ namespace DEGMA.Controllers
         {
             _context = context;
         }
+
+
+        [HttpPost]
+        [Authorize(Roles = "Doctor")]
+        public async Task<IActionResult> WipeData()
+        {
+            // Remove join table data first (ReportSideEffect)
+            var reports = await _context.Reports
+                .Include(r => r.SideEffects)
+                .ToListAsync();
+
+            foreach (var report in reports)
+                report.SideEffects.Clear();
+
+            await _context.SaveChangesAsync();
+
+            // Now remove reports and patients
+            _context.Reports.RemoveRange(_context.Reports);
+            _context.Patients.RemoveRange(_context.Patients);
+            _context.SideEffects.RemoveRange(_context.SideEffects);
+
+            await _context.SaveChangesAsync();
+
+            TempData["ImportSuccess"] = "All patient, report and side effect data wiped successfully.";
+            return RedirectToAction("Index");
+        }
+
+
+
 
         public async Task<IActionResult> Index()
         {

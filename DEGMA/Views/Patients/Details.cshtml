@@ -2,29 +2,33 @@
 
 @{
     ViewData["Title"] = "Patient Profile";
-    // Quick math for the header stats
     var currentWeight = Model.Reports.LastOrDefault()?.Weight ?? Model.StartingWeight;
     var totalLost = currentWeight - Model.StartingWeight;
 }
 
 <div class="container mt-4">
-    <!-- Header: Quick Stats -->
+    <!-- Header -->
     <div class="row mb-4 align-items-end">
         <div class="col-md-7">
             <h1 class="fw-bold text-white mb-0">@Model.Firstname @Model.Surname</h1>
             <p class="text-muted">Treatment started on @Model.TreatmentStartDate.ToShortDateString()</p>
         </div>
-    <div class="col-md-5 text-md-end">
-        <a asp-action="Edit" asp-route-id="@Model.PatientId" class="btn btn-outline-secondary btn-sm">Edit Profile</a>
-        <a asp-action="ReportPreview" asp-route-id="@Model.PatientId" class="btn btn-outline-info btn-sm ms-2" target="_blank">
-        <i class="bi bi-eye"></i> Preview Report
-        </a>
-        <a asp-action="DownloadReport" asp-route-id="@Model.PatientId" class="btn btn-outline-light btn-sm ms-2">
-        <i class="bi bi-download"></i> Download PDF
-        </a>
-        <a asp-controller="Reports" asp-action="Create" class="btn btn-primary btn-sm ms-2">+ Log New Entry</a>
+        <div class="col-md-5 text-md-end">
+            <a asp-action="Edit" asp-route-id="@Model.PatientId"
+               class="btn btn-outline-secondary btn-sm">Edit Profile</a>
+            <a asp-action="ReportPreview" asp-route-id="@Model.PatientId"
+                   class="btn btn-outline-info btn-sm ms-2" target="_blank">
+                <i class="bi bi-eye"></i> Preview Report
+            </a>
+            <a asp-action="DownloadReport" asp-route-id="@Model.PatientId"
+                   class="btn btn-outline-light btn-sm ms-2">
+                <i class="bi bi-download"></i> Download PDF
+            </a>
+            <a asp-controller="Reports" asp-action="Create"
+               asp-route-patientId="@Model.PatientId"
+               class="btn btn-primary btn-sm ms-2">+ Log New Entry</a>
+        </div>
     </div>
-    
 
     <div class="row g-3">
         <!-- Sidebar: Patient Info -->
@@ -32,7 +36,7 @@
             <div class="card h-100 shadow-sm">
                 <div class="card-body">
                     <h6 class="text-uppercase text-muted small fw-bold mb-3">Patient Statistics</h6>
-                    
+
                     <div class="mb-3">
                         <label class="text-muted d-block small">Starting Weight</label>
                         <span class="h4">@Model.StartingWeight kg</span>
@@ -49,14 +53,19 @@
                             @(totalLost > 0 ? "+" : "")@totalLost.ToString("0.00") kg
                         </span>
                     </div>
+
                     <hr class="opacity-10" />
-                    <p class="small text-muted mb-1"><i class="bi bi-envelope me-2"></i>@Model.Email</p>
-                    <p class="small text-muted mb-0"><i class="bi bi-calendar-event me-2"></i>Born @Model.DateOfBirth</p>
+                    <p class="small text-muted mb-1">
+                        <i class="bi bi-envelope me-2"></i>@Model.Email
+                    </p>
+                    <p class="small text-muted mb-0">
+                        <i class="bi bi-calendar-event me-2"></i>Born @Model.DateOfBirth
+                    </p>
                 </div>
             </div>
         </div>
 
-        <!-- Main Content: Graph -->
+        <!-- Graph -->
         <div class="col-md-8">
             <div class="card h-100 shadow-sm">
                 <div class="card-body">
@@ -68,7 +77,7 @@
             </div>
         </div>
 
-        <!-- History Table -->
+        <!-- Treatment History Table -->
         <div class="col-12 mt-3">
             <div class="card shadow-sm">
                 <div class="card-body p-0">
@@ -85,6 +94,7 @@
                                     <th>Change</th>
                                     <th>Dosage</th>
                                     <th>Side Effects</th>
+                                    <th>Notes</th>
                                     <th class="text-end pe-4">Actions</th>
                                 </tr>
                             </thead>
@@ -93,20 +103,44 @@
                                 {
                                     <tr>
                                         <td class="ps-4">Wk @report.WeekNumber</td>
-                                        <td class="text-muted small">@report.Date.ToShortDateString()</td>
+                                        <td class="text-muted small">
+                                            @report.Date.ToShortDateString()
+                                        </td>
                                         <td class="fw-bold">@report.Weight kg</td>
                                         <td class="@(report.WeightChange <= 0 ? "text-success" : "text-danger")">
                                             @(report.WeightChange > 0 ? "+" : "")@report.WeightChange.ToString("0.00")
                                         </td>
-                                        <td><span class="badge bg-dark border border-secondary text-info">@report.Dosage mg</span></td>
+                                        <td>
+                                            <span class="badge bg-dark border border-secondary text-info">
+                                                @report.Dosage mg
+                                            </span>
+                                        </td>
                                         <td class="small">
-                                            @foreach(var se in report.SideEffects)
+                                            @foreach (var se in report.SideEffects)
                                             {
-                                                <span class="badge rounded-pill bg-secondary bg-opacity-25 text-white fw-normal me-1">@se.Name</span>
+                                                <span class="badge rounded-pill bg-secondary bg-opacity-25 text-white fw-normal me-1">
+                                                    @se.Name
+                                                </span>
                                             }
                                         </td>
+                                        <td class="small text-muted">
+                                            @report.Notes
+                                        </td>
                                         <td class="text-end pe-4">
-                                            <a asp-controller="Reports" asp-action="Edit" asp-route-id="@report.ReportId" class="btn btn-sm text-muted p-0"><i class="bi bi-pencil"></i></a>
+                                            <a asp-controller="Reports"
+                                                   asp-action="Edit"
+                                                   asp-route-id="@report.ReportId"
+                                                   class="btn btn-sm btn-outline-secondary border-0 me-1">
+                                                <i class="bi bi-pencil"></i> Edit
+                                            </a>
+                                            <button type="button"
+                                                    class="btn btn-sm btn-outline-danger border-0"
+                                                    data-bs-toggle="modal"
+                                                    data-bs-target="#deleteModal"
+                                                    data-report-id="@report.ReportId"
+                                                    data-week="@report.WeekNumber">
+                                                <i class="bi bi-trash"></i> Delete
+                                            </button>
                                         </td>
                                     </tr>
                                 }
@@ -117,56 +151,99 @@
             </div>
         </div>
     </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div class="modal fade" id="deleteModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border border-secondary" style="background-color:#16213e;">
+                <div class="modal-header border-bottom border-secondary border-opacity-25">
+                    <h5 class="modal-title text-white">Delete Report</h5>
+                    <button type="button" class="btn-close btn-close-white"
+                            data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body text-muted">
+                    Are you sure you want to delete
+                    <span id="modalWeekLabel" class="text-white fw-bold"></span>?
+                    This action cannot be undone.
+                </div>
+                <div class="modal-footer border-top border-secondary border-opacity-25">
+                    <button type="button" class="btn btn-outline-secondary btn-sm"
+                            data-bs-dismiss="modal">
+                        Cancel
+                    </button>
+                    <form id="deleteForm" method="post">
+                        @Html.AntiForgeryToken()
+                        <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 
 @section Scripts {
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <script>
+        // Weight chart
         const ctx = document.getElementById('weightChart').getContext('2d');
-        
-        // Data Preparation
-        const labels = ['Start', @foreach(var r in Model.Reports) { <text>'Wk @r.WeekNumber',</text> }];
-        const weightData = [
-            @Model.StartingWeight.ToString(System.Globalization.CultureInfo.InvariantCulture), 
-            @foreach(var r in Model.Reports) { 
-                <text>@r.Weight.ToString(System.Globalization.CultureInfo.InvariantCulture),</text> 
-            }
-            ];
-        new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: labels,
-                datasets: [{
-                    label: 'Weight (kg)',
-                    data: weightData,
-                    borderColor: '#3d8bfd', // Medical Blue
-                    backgroundColor: 'rgba(61, 139, 253, 0.1)',
-                    borderWidth: 3,
-                    tension: 0.35,
-                    fill: true,
-                    pointRadius: 4,
-                    pointBackgroundColor: '#3d8bfd'
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                scales: {
-                    y: {
-                        beginAtZero: false,
-                        grid: { color: 'rgba(255, 255, 255, 0.05)' }, // Very faint grid
-                        ticks: { color: '#6c757d' } // Muted labels
-                    },
-                    x: {
-                        grid: { display: false },
-                        ticks: { color: '#6c757d' }
-                    }
-                },
-                plugins: {
-                    legend: { display: false }
-                }
-            }
-        });
-    </script>
+
+        const labels = ['Start', @foreach (var r in Model.Reports) {
+        <text>'Wk @r.WeekNumber',</text>
+    }
+    ];
+    const weightData = [
+    @Model.StartingWeight.ToString(System.Globalization.CultureInfo.InvariantCulture),
+    @foreach (var r in Model.Reports)
+    {
+        <text>@r.Weight.ToString(System.Globalization.CultureInfo.InvariantCulture),</text>
+    }
+    ];
+
+    new Chart(ctx, {
+    type: 'line',
+    data: {
+    labels: labels,
+    datasets: [{
+    label: 'Weight (kg)',
+    data: weightData,
+    borderColor: '#3d8bfd',
+    backgroundColor: 'rgba(61, 139, 253, 0.1)',
+    borderWidth: 3,
+    tension: 0.35,
+    fill: true,
+    pointRadius: 4,
+    pointBackgroundColor: '#3d8bfd'
+    }]
+    },
+    options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    scales: {
+    y: {
+    beginAtZero: false,
+    grid: { color: 'rgba(255, 255, 255, 0.05)' },
+    ticks: { color: '#6c757d' }
+    },
+    x: {
+    grid: { display: false },
+    ticks: { color: '#6c757d' }
+    }
+    },
+    plugins: {
+    legend: { display: false }
+    }
+    }
+    });
+
+    // Delete modal
+    document.getElementById('deleteModal').addEventListener('show.bs.modal', function (e) {
+    const button = e.relatedTarget;
+    const reportId = button.getAttribute('data-report-id');
+    const week = button.getAttribute('data-week');
+
+    document.getElementById('modalWeekLabel').textContent = `Week ${week}`;
+    document.getElementById('deleteForm').action = `/Reports/Delete/${reportId}`;
+    });
+</script>
 }

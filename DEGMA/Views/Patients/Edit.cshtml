@@ -1,54 +1,84 @@
 ﻿@model DEGMA.Models.Patient
 
 @{
-    ViewData["Title"] = "Edit";
+    ViewData["Title"] = "Edit Patient";
 }
 
-<h1>Edit</h1>
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow-sm border-0">
+                <div class="card-body p-5">
+                    <div class="mb-4">
+                        <h2 class="fw-bold text-white">Edit Patient Profile</h2>
+                        <p class="text-muted">Update details for @Model.Firstname @Model.Surname</p>
+                    </div>
 
-<h4>Patient</h4>
-<hr />
-<div class="row">
-    <div class="col-md-4">
-        <form asp-action="Edit">
-            <div asp-validation-summary="ModelOnly" class="text-danger"></div>
-            <input type="hidden" asp-for="PatientId" />
-            <div class="form-group">
-                <label asp-for="Firstname" class="control-label"></label>
-                <input asp-for="Firstname" class="form-control" />
-                <span asp-validation-for="Firstname" class="text-danger"></span>
+                    <form asp-action="Edit" method="post">
+                        @Html.AntiForgeryToken()
+                        <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+                        <input type="hidden" asp-for="PatientId" />
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label asp-for="Firstname" class="form-label fw-bold small text-uppercase"></label>
+                                <input asp-for="Firstname" class="form-control" />
+                                <span asp-validation-for="Firstname" class="text-danger"></span>
+                            </div>
+                            <div class="col-md-6">
+                                <label asp-for="Surname" class="form-label fw-bold small text-uppercase"></label>
+                                <input asp-for="Surname" class="form-control" />
+                                <span asp-validation-for="Surname" class="text-danger"></span>
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label asp-for="DateOfBirth" class="form-label fw-bold small text-uppercase"></label>
+                                <input asp-for="DateOfBirth" class="form-control" type="date"
+                                       value="@Model.DateOfBirth.ToString("yyyy-MM-dd")" />
+                                <span asp-validation-for="DateOfBirth" class="text-danger"></span>
+                            </div>
+                            <div class="col-md-6">
+                                <label asp-for="Email" class="form-label fw-bold small text-uppercase"></label>
+                                <input asp-for="Email" class="form-control" type="email" />
+                                <span asp-validation-for="Email" class="text-danger"></span>
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label asp-for="StartingWeight" class="form-label fw-bold small text-uppercase">Starting Weight (kg)</label>
+                                <input asp-for="StartingWeight" class="form-control"
+                                       value="@Model.StartingWeight.ToString(System.Globalization.CultureInfo.InvariantCulture)" />
+                                <span asp-validation-for="StartingWeight" class="text-danger"></span>
+                            </div>
+                            <div class="col-md-6">
+                                <label asp-for="TreatmentStartDate" class="form-label fw-bold small text-uppercase"></label>
+                                <input asp-for="TreatmentStartDate" class="form-control" type="date"
+                                       value="@Model.TreatmentStartDate.ToString("yyyy-MM-dd")" />
+                                <span asp-validation-for="TreatmentStartDate" class="text-danger"></span>
+                            </div>
+                        </div>
+
+                        <div class="d-flex justify-content-between align-items-center mt-5 pt-3 border-top">
+                            <a asp-action="Details" asp-route-id="@Model.PatientId"
+                                   class="text-decoration-none text-muted">
+                                <i class="bi bi-arrow-left"></i> Back to Profile
+                            </a>
+                            <button type="submit" class="btn btn-primary px-5 py-2 fw-bold">
+                                Save Changes
+                            </button>
+                        </div>
+                    </form>
+                </div>
             </div>
-            <div class="form-group">
-                <label asp-for="Surname" class="control-label"></label>
-                <input asp-for="Surname" class="form-control" />
-                <span asp-validation-for="Surname" class="text-danger"></span>
-            </div>
-            <div class="form-group">
-                <label asp-for="DateOfBirth" class="control-label"></label>
-                <input asp-for="DateOfBirth" class="form-control" />
-                <span asp-validation-for="DateOfBirth" class="text-danger"></span>
-            </div>
-            <div class="form-group">
-                <label asp-for="Email" class="control-label"></label>
-                <input asp-for="Email" class="form-control" />
-                <span asp-validation-for="Email" class="text-danger"></span>
-            </div>
-            <div class="form-group">
-                <label asp-for="StartingWeight" class="control-label"></label>
-                <input asp-for="StartingWeight" class="form-control" />
-                <span asp-validation-for="StartingWeight" class="text-danger"></span>
-            </div>
-            <div class="form-group">
-                <input type="submit" value="Save" class="btn btn-primary" />
-            </div>
-        </form>
+        </div>
     </div>
 </div>
 
-<div>
-    <a asp-action="Index">Back to List</a>
-</div>
-
 @section Scripts {
-    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+    @{
+        await Html.RenderPartialAsync("_ValidationScriptsPartial");
+    }
 }

@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Globalization;
 using System.Text;
 
 namespace DEGMA.Controllers
@@ -23,36 +24,26 @@ namespace DEGMA.Controllers
             var files = new Dictionary<string, byte[]>();
 
             if (includePrime)
-            {
-                var csv = await BuildPrimeCsv();
-                files["DEGMA_Full_Backup.csv"] = Encoding.UTF8.GetBytes(csv);
-            }
+                files["DEGMA_Full_Backup.csv"] = Encoding.UTF8.GetBytes(await BuildPrimeCsv());
 
             if (includePatients)
-            {
-                var csv = await BuildPatientsCsv();
-                files["DEGMA_Patients.csv"] = Encoding.UTF8.GetBytes(csv);
-            }
+                files["DEGMA_Patients.csv"] = Encoding.UTF8.GetBytes(await BuildPatientsCsv());
 
             if (includeReports)
-            {
-                var csv = await BuildReportsCsv();
-                files["DEGMA_Reports.csv"] = Encoding.UTF8.GetBytes(csv);
-            }
+                files["DEGMA_Reports.csv"] = Encoding.UTF8.GetBytes(await BuildReportsCsv());
 
             if (files.Count == 0)
                 return RedirectToAction("Index", "Home");
 
-            // If only one file selected, return it directly
             if (files.Count == 1)
             {
                 var file = files.First();
                 return File(file.Value, "text/csv", file.Key);
             }
 
-            // Multiple files — zip them
-            using var zipStream = new System.IO.MemoryStream();
-            using (var archive = new System.IO.Compression.ZipArchive(zipStream, System.IO.Compression.ZipArchiveMode.Create, true))
+            using var zipStream = new MemoryStream();
+            using (var archive = new System.IO.Compression.ZipArchive(
+                zipStream, System.IO.Compression.ZipArchiveMode.Create, true))
             {
                 foreach (var file in files)
                 {
@@ -66,7 +57,6 @@ namespace DEGMA.Controllers
                 $"DEGMA_Backup_{DateTime.Now:yyyyMMdd_HHmm}.zip");
         }
 
-        // --- Prime CSV: every report with all associated info ---
         private async Task<string> BuildPrimeCsv()
         {
             var reports = await _context.Reports
@@ -77,8 +67,9 @@ namespace DEGMA.Controllers
                 .ToListAsync();
 
             var sb = new StringBuilder();
-            sb.AppendLine("PatientId,Firstname,Surname,DateOfBirth,Email,StartingWeight,TreatmentStartDate," +
-                          "ReportId,ReportNumber,WeekNumber,Date,Weight,Dosage,WeightChange,Notes,SideEffects");
+            sb.AppendLine("PatientId,Firstname,Surname,DateOfBirth,Email,StartingWeight," +
+                          "TreatmentStartDate,ReportId,ReportNumber,WeekNumber,Date," +
+                          "Weight,Dosage,WeightChange,Notes,SideEffects");
 
             foreach (var r in reports)
             {
@@ -89,15 +80,16 @@ namespace DEGMA.Controllers
                     Escape(r.Patient.Surname),
                     r.Patient.DateOfBirth.ToString("yyyy-MM-dd"),
                     Escape(r.Patient.Email),
-                    r.Patient.StartingWeight,
+                    // Force InvariantCulture on ALL numerics so decimal point is always "."
+                    r.Patient.StartingWeight.ToString("F2", CultureInfo.InvariantCulture),
                     r.Patient.TreatmentStartDate.ToString("yyyy-MM-dd"),
                     r.ReportId,
                     r.ReportNumber,
                     r.WeekNumber,
                     r.Date.ToString("yyyy-MM-dd"),
-                    r.Weight,
-                    r.Dosage,
-                    r.WeightChange,
+                    r.Weight.ToString("F2", CultureInfo.InvariantCulture),
+                    r.Dosage.ToString("F2", CultureInfo.InvariantCulture),
+                    r.WeightChange.ToString("F2", CultureInfo.InvariantCulture),
                     Escape(r.Notes ?? ""),
                     Escape(sideEffects)
                 ));
@@ -106,7 +98,6 @@ namespace DEGMA.Controllers
             return sb.ToString();
         }
 
-        // --- Patients CSV: patient info only ---
         private async Task<string> BuildPatientsCsv()
         {
             var patients = await _context.Patients
@@ -124,7 +115,7 @@ namespace DEGMA.Controllers
                     Escape(p.Surname),
                     p.DateOfBirth.ToString("yyyy-MM-dd"),
                     Escape(p.Email),
-                    p.StartingWeight,
+                    p.StartingWeight.ToString("F2", CultureInfo.InvariantCulture),
                     p.TreatmentStartDate.ToString("yyyy-MM-dd")
                 ));
             }
@@ -132,7 +123,6 @@ namespace DEGMA.Controllers
             return sb.ToString();
         }
 
-        // --- Reports CSV: report info only, no patient info ---
         private async Task<string> BuildReportsCsv()
         {
             var reports = await _context.Reports
@@ -153,9 +143,9 @@ namespace DEGMA.Controllers
                     r.ReportNumber,
                     r.WeekNumber,
                     r.Date.ToString("yyyy-MM-dd"),
-                    r.Weight,
-                    r.Dosage,
-                    r.WeightChange,
+                    r.Weight.ToString("F2", CultureInfo.InvariantCulture),
+                    r.Dosage.ToString("F2", CultureInfo.InvariantCulture),
+                    r.WeightChange.ToString("F2", CultureInfo.InvariantCulture),
                     Escape(r.Notes ?? ""),
                     Escape(sideEffects)
                 ));
@@ -164,7 +154,6 @@ namespace DEGMA.Controllers
             return sb.ToString();
         }
 
-        // Wraps fields in quotes if they contain commas or quotes
         private string Escape(string value)
         {
             if (value.Contains(',') || value.Contains('"') || value.Contains('\n'))

@@ -18,6 +18,12 @@
                         @Html.AntiForgeryToken()
                         <div asp-validation-summary="ModelOnly" class="text-danger"></div>
 
+                        @* Pass the preselected patient id through the form so POST can redirect back *@
+                        @if (ViewBag.PreselectedPatientId != null)
+                        {
+                            <input type="hidden" name="returnPatientId" value="@ViewBag.PreselectedPatientId" />
+                        }
+
                         <div class="row mb-4">
                             <div class="col-md-12">
                                 <label class="form-label fw-bold small text-uppercase">Select Patient</label>
@@ -27,25 +33,27 @@
                             </div>
                         </div>
 
-                        <div class="col-md-4">
-                            <label asp-for="Date" class="form-label fw-bold small text-uppercase"></label>
-                            <input asp-for="Date" id="reportDate" class="form-control" />
+                        <div class="col-md-4 mb-3">
+                            <label asp-for="Date" class="form-label fw-bold small text-uppercase">Report Date</label>
+                            <input asp-for="Date" id="reportDate" class="form-control" type="date" />
+                            <span asp-validation-for="Date" class="text-danger"></span>
                         </div>
 
                         <div class="row mb-3">
                             <div class="col-md-4">
                                 <label asp-for="ReportNumber" class="form-label fw-bold small text-uppercase"></label>
                                 <input asp-for="ReportNumber" class="form-control" readonly />
-                                <span asp-validation-for="ReportNumber" class="text-danger">  </span>
+                                <span asp-validation-for="ReportNumber" class="text-danger"></span>
                             </div>
                             <div class="col-md-4">
                                 <label asp-for="WeekNumber" class="form-label fw-bold small text-uppercase"></label>
                                 <input asp-for="WeekNumber" class="form-control" readonly />
-                                <span asp-validation-for="WeekNumber" class="text-danger">  </span>
+                                <span asp-validation-for="WeekNumber" class="text-danger"></span>
                             </div>
                             <div class="col-md-4">
                                 <label asp-for="Dosage" class="form-label fw-bold small text-uppercase">Dosage (mg)</label>
-                                <input asp-for="Dosage" class="form-control" type="number" step="0.01" />
+                                <input asp-for="Dosage" id="dosageInput" class="form-control"
+                                       value="@(ViewBag.LastDosage != null ? ((decimal)ViewBag.LastDosage).ToString(System.Globalization.CultureInfo.InvariantCulture) : "")" />
                                 <span asp-validation-for="Dosage" class="text-danger"></span>
                             </div>
                         </div>
@@ -54,31 +62,33 @@
                             <div class="col-md-4">
                                 <label asp-for="Weight" class="form-label fw-bold small text-uppercase">Current Weight (kg)</label>
                                 <input asp-for="Weight" class="form-control" />
-                                <span asp-validation-for="Weight" class="text-danger"> </span>
+                                <span asp-validation-for="Weight" class="text-danger"></span>
                             </div>
-
                             <div class="col-md-4">
                                 <label class="form-label fw-bold small text-uppercase">Weight Change</label>
                                 <input type="text" id="weightChange" class="form-control" readonly />
                                 <input type="hidden" name="WeightChange" value="0" />
                             </div>
-
                             <div class="col-md-8">
                                 <label asp-for="Notes" class="form-label fw-bold small text-uppercase"></label>
                                 <textarea asp-for="Notes" class="form-control" rows="1" placeholder="Observation notes..."></textarea>
-                                <span asp-validation-for="Notes" class="text-danger"> </span>
+                                <span asp-validation-for="Notes" class="text-danger"></span>
                             </div>
                         </div>
 
                         <div class="mb-4">
                             <label class="form-label fw-bold small text-uppercase mb-2 text-muted">Observed Side Effects</label>
-                            <div class="p-3 rounded border bg-dark text-light" style="max-height: 200px; overflow-y: auto; border-color: var(--border) !important;">
+                            <div class="p-3 rounded border bg-dark text-light"
+                                 style="max-height: 200px; overflow-y: auto; border-color: var(--border) !important;">
                                 <div class="row">
                                     @foreach (var sideEffect in (List<DEGMA.Models.SideEffect>)ViewBag.AllSideEffects)
                                     {
                                         <div class="col-md-4 mb-2">
                                             <div class="form-check">
-                                                <input class="form-check-input" type="checkbox" name="selectedSideEffects" value="@sideEffect.SideEffectId" id="se_@sideEffect.SideEffectId">
+                                                <input class="form-check-input" type="checkbox"
+                                                       name="selectedSideEffects"
+                                                       value="@sideEffect.SideEffectId"
+                                                       id="se_@sideEffect.SideEffectId" />
                                                 <label class="form-check-label" for="se_@sideEffect.SideEffectId">
                                                     @sideEffect.Name
                                                 </label>
@@ -90,10 +100,20 @@
                         </div>
 
                         <div class="d-flex justify-content-between align-items-center mt-5 pt-3 border-top">
-                            <a asp-action="Index" class="text-decoration-none text-muted">
-                                <i class="bi bi-arrow-left"></i> Back to Reports
-                            </a>
-
+                            @if (ViewBag.PreselectedPatientId != null)
+                            {
+                                <a asp-controller="Patients" asp-action="Details"
+                                       asp-route-id="@ViewBag.PreselectedPatientId"
+                                       class="text-decoration-none text-muted">
+                                    <i class="bi bi-arrow-left"></i> Back to Patient
+                                </a>
+                            }
+                            else
+                            {
+                                <a asp-action="Index" class="text-decoration-none text-muted">
+                                    <i class="bi bi-arrow-left"></i> Back to Reports
+                                </a>
+                            }
                             <button type="submit" class="btn btn-success px-5 py-2 fw-bold">Submit Report</button>
                         </div>
                     </form>
@@ -107,70 +127,78 @@
     @{
         await Html.RenderPartialAsync("_ValidationScriptsPartial");
     }
-    
+
     <script>
-    let patientStartDate = "";
-    let startingWeight = 0;
-    let lastWeight = 0;
+        let patientStartDate = "";
+        let startingWeight = 0;
+        let lastWeight = 0;
 
-    // Functions defined at the top level, outside document.ready
-    function calculateWeek() {
-        if (!patientStartDate || !$('#reportDate').val()) return;
+        function calculateWeek() {
+            if (!patientStartDate || !$('#reportDate').val()) return;
 
-        const start = new Date(patientStartDate);
-        const report = new Date($('#reportDate').val());
+            const start = new Date(patientStartDate);
+            const report = new Date($('#reportDate').val());
 
-        if (isNaN(start) || isNaN(report)) return;
+            if (isNaN(start) || isNaN(report)) return;
 
-        const diffTime = report - start;
+            const diffTime = report - start;
 
-        if (diffTime < 0) {
-            $('[id="WeekNumber"]').val(1);
-            return;
+            if (diffTime < 0) {
+                $('[id="WeekNumber"]').val(1);
+                return;
+            }
+
+            const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+            const weekNum = Math.max(1, Math.floor(diffDays / 7) + 1);
+            $('[id="WeekNumber"]').val(weekNum);
         }
 
-        const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-        const weekNum = Math.max(1, Math.floor(diffDays / 7) + 1);
-        $('[id="WeekNumber"]').val(weekNum);
-    }
+        function calculateWeightChange() {
+            const current = parseFloat($('[id="Weight"]').val());
+            if (isNaN(current) || lastWeight === 0) return;
 
-    function calculateWeightChange() {
-        const current = parseFloat($('[id="Weight"]').val());
-        if (isNaN(current) || lastWeight === 0) return;
+            const change = (current - lastWeight).toFixed(2);
+            $('#weightChange').val(change);
+        }
 
-        const change = (current - lastWeight).toFixed(2);
-        $('#weightChange').val(change); // lowercase w to match id="weightChange"
-    }
+        $(document).ready(function () {
+            $.validator.setDefaults({ ignore: [] });
 
-    $(document).ready(function () {
-        // Tell jQuery validator to include readonly fields
-        $.validator.setDefaults({
-        ignore: []
+            $('#patientSelector').select2({
+                theme: 'bootstrap-5',
+                width: '100%'
+            });
+
+            $('#patientSelector').on('change', function () {
+                const patientId = $(this).val();
+                if (!patientId) return;
+
+                fetch(`/Reports/GetPatientData/${patientId}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        $('[id="ReportNumber"]').val(data.nextReportNumber);
+                        patientStartDate = data.startDate;
+                        startingWeight = data.startingWeight;
+                        lastWeight = data.lastWeight;
+
+                        // Pre-fill dosage with last report's dosage if available
+                        if (data.lastDosage && $('#dosageInput').val() === '') {
+                            $('#dosageInput').val(data.lastDosage);
+                        }
+
+                        calculateWeek();
+                        calculateWeightChange();
+                    });
+            });
+
+            $('#reportDate').on('change', calculateWeek);
+            $('[id="Weight"]').on('input', calculateWeightChange);
+
+            // Auto-trigger if patient is pre-selected from patient profile
+            const preselected = '@(ViewBag.PreselectedPatientId?.ToString() ?? "")';
+            if (preselected) {
+                $('#patientSelector').val(preselected).trigger('change');
+            }
         });
-        $('#patientSelector').select2({
-            theme: 'bootstrap-5',
-            width: '100%'
-        });
-
-        $('#patientSelector').on('change', function () {
-            const patientId = $(this).val();
-            if (!patientId) return;
-
-            fetch(`/Reports/GetPatientData/${patientId}`)
-                .then(response => response.json())
-                .then(data => {
-                    $('[id="ReportNumber"]').val(data.nextReportNumber);
-                    patientStartDate = data.startDate;
-                    startingWeight = data.startingWeight;
-                    lastWeight = data.lastWeight;
-
-                    calculateWeek();
-                    calculateWeightChange();
-                });
-        });
-
-        $('#reportDate').on('change', calculateWeek);
-        $('[id="Weight"]').on('input', calculateWeightChange);
-    });
-</script>
+    </script>
 }

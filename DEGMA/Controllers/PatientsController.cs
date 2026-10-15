@@ -109,7 +109,7 @@ namespace DEGMA.Controllers
         // For more details, see http://go.microsoft.com/fwlink/?LinkId=317598.
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Create([Bind("PatientId,Firstname,Surname,DateOfBirth,Email,StartingWeight")] Patient patient)
+        public async Task<IActionResult> Create([Bind("PatientId,Firstname,Surname,DateOfBirth,Email,StartingWeight,GoalWeight")] Patient patient)
         {
             if (ModelState.IsValid)
             {
@@ -140,7 +140,7 @@ namespace DEGMA.Controllers
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Edit(int id,
-        [Bind("PatientId,Firstname,Surname,DateOfBirth,Email,StartingWeight,TreatmentStartDate")]
+        [Bind("PatientId,Firstname,Surname,DateOfBirth,Email,StartingWeight,GoalWeight,TreatmentStartDate")]
         Patient patient)
         {
             if (id != patient.PatientId) return NotFound();

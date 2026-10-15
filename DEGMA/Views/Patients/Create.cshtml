@@ -36,7 +36,7 @@
                             <span asp-validation-for="Email" class="text-danger"></span>
                         </div>
 
-                        <div class="row mb-4">
+                        <div class="row mb-3">
                             <div class="col-md-6">
                                 <label asp-for="DateOfBirth" class="form-label fw-bold small text-uppercase"></label>
                                 <input asp-for="DateOfBirth" class="form-control" />
@@ -46,6 +46,14 @@
                                 <label asp-for="StartingWeight" class="form-label fw-bold small text-uppercase">Starting Weight (kg)</label>
                                 <input asp-for="StartingWeight" class="form-control" placeholder="0.0" />
                                 <span asp-validation-for="StartingWeight" class="text-danger"></span>
+                            </div>
+                        </div>
+
+                        <div class="row mb-4">
+                            <div class="col-md-6">
+                                <label asp-for="GoalWeight" class="form-label fw-bold small text-uppercase">Goal Weight (kg)</label>
+                                <input asp-for="GoalWeight" class="form-control" placeholder="Optional" />
+                                <span asp-validation-for="GoalWeight" class="text-danger"></span>
                             </div>
                         </div>
 

@@ -34,6 +34,9 @@ namespace DEGMA.Migrations
                         .IsRequired()
                         .HasColumnType("TEXT");
 
+                    b.Property<double?>("GoalWeight")
+                        .HasColumnType("REAL");
+
                     b.Property<double>("StartingWeight")
                         .HasColumnType("REAL");
 

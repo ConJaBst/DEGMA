@@ -44,6 +44,9 @@ builder.Services.Configure<ClinicSettings>(
 builder.Services.Configure<EmailSettings>(
     builder.Configuration.GetSection("EmailSettings"));
 
+builder.Services.Configure<BackupSettings>(
+    builder.Configuration.GetSection("BackupSettings"));
+
 // ================================================================
 // APPLICATION SERVICES
 // ================================================================
@@ -54,6 +57,10 @@ builder.Services.AddSingleton(typeof(IConverter),
 
 // Email
 builder.Services.AddTransient<EmailService>();
+
+// Database backups — daily scheduled run plus manual trigger
+builder.Services.AddSingleton<BackupService>();
+builder.Services.AddHostedService<BackupScheduler>();
 
 // Session (used by CSV import)
 builder.Services.AddDistributedMemoryCache();

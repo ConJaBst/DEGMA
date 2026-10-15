@@ -3,6 +3,7 @@
 }
 
 @model DEGMA.Models.DashboardViewModel
+@inject DEGMA.Services.BackupService BackupService
 
 @{
     ViewData["Title"] = "Dashboard";
@@ -180,6 +181,41 @@
                                     </button>
                                 </div>
                             </form>
+
+                            @* Database backup (local folder + cloud-synced folder) *@
+                            @{
+                                var lastBackup = BackupService.LastSuccessfulBackup();
+                                var cloudFolder = BackupService.CloudFolder;
+                            }
+                            <h6 class="text-uppercase text-muted small fw-bold mt-4 mb-2">
+                                <i class="bi bi-database-check me-2"></i>Database Backup
+                            </h6>
+                            <small class="text-muted d-block" style="font-size:11px;">
+                                Runs daily at @BackupService.DailyTime.ToString("HH:mm").
+                                Last backup: @(lastBackup?.ToString("dd MMM yyyy HH:mm") ?? "never")
+                            </small>
+                            <small class="text-muted d-block mb-2" style="font-size:10px;">
+                                Local: @BackupService.LocalFolder<br />
+                                Cloud: @(string.IsNullOrEmpty(cloudFolder) ? "not configured" : cloudFolder)
+                            </small>
+                            <form asp-controller="Backup" asp-action="RunNow" method="post">
+                                @Html.AntiForgeryToken()
+                                <button type="submit" class="btn btn-outline-success btn-sm">
+                                    <i class="bi bi-cloud-arrow-up me-1"></i> Back Up Now
+                                </button>
+                            </form>
+                            @if (TempData["BackupSuccess"] != null)
+                            {
+                                <div class="alert alert-success mt-2 mb-0 py-2 small">
+                                    <i class="bi bi-check-circle me-1"></i> @TempData["BackupSuccess"]
+                                </div>
+                            }
+                            @if (TempData["BackupError"] != null)
+                            {
+                                <div class="alert alert-danger mt-2 mb-0 py-2 small">
+                                    <i class="bi bi-x-circle me-1"></i> @TempData["BackupError"]
+                                </div>
+                            }
                         </div>
 
                         <div class="col-md-1 d-none d-md-flex justify-content-center">

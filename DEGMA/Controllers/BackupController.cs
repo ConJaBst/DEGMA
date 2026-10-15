@@ -1,4 +1,5 @@
 ﻿using DEGMA.Data;
+using DEGMA.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -11,10 +12,27 @@ namespace DEGMA.Controllers
     public class BackupController : Controller
     {
         private readonly ApplicationDbContext _context;
+        private readonly BackupService _backupService;
 
-        public BackupController(ApplicationDbContext context)
+        public BackupController(ApplicationDbContext context, BackupService backupService)
         {
             _context = context;
+            _backupService = backupService;
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [Authorize(Roles = "Doctor")]
+        public async Task<IActionResult> RunNow()
+        {
+            var result = await _backupService.RunAsync("Manual");
+
+            if (result.Success)
+                TempData["BackupSuccess"] = $"Backup created in {result.Copies.Count} locations.";
+            else
+                TempData["BackupError"] = string.Join(" ", result.Errors);
+
+            return RedirectToAction("Index", "Home");
         }
 
         [HttpPost]

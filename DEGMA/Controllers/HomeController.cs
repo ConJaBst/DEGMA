@@ -55,39 +55,108 @@ namespace DEGMA.Controllers
 
         public async Task<IActionResult> Index()
         {
-            var reports = await _context.Reports.Include(r => r.SideEffects).Include(r => r.Patient).ToListAsync();
-            var patients = await _context.Patients.ToListAsync();
+            var today = DateOnly.FromDateTime(DateTime.Now);
+
+            var patients = await _context.Patients
+                .AsNoTracking()
+                .Include(p => p.Reports)
+                .ToListAsync();
+
+            // Ignore future-dated reports so "latest" means the latest visit that has happened.
+            var visits = patients
+                .SelectMany(p => p.Reports.Where(r => r.Date <= today).Select(r => (Patient: p, Report: r)))
+                .ToList();
+
+            // Each patient's starting weight and latest recorded weight
+            var progress = patients
+                .Select(p => new
+                {
+                    Patient = p,
+                    Latest = p.Reports.Where(r => r.Date <= today)
+                        .OrderByDescending(r => r.Date).ThenByDescending(r => r.ReportNumber)
+                        .FirstOrDefault()
+                })
+                .Where(x => x.Latest != null && x.Patient.StartingWeight > 0)
+                .Select(x => new
+                {
+                    x.Patient,
+                    x.Latest,
+                    LossKg = x.Patient.StartingWeight - x.Latest!.Weight,
+                    LossPercent = (x.Patient.StartingWeight - x.Latest.Weight) / x.Patient.StartingWeight * 100
+                })
+                .ToList();
+
+            var activeSince = today.AddDays(-30);
+            var active = progress.Where(x => x.Latest!.Date > activeSince).ToList();
+
+            var thisWeek = visits.Count(v => v.Report.Date > today.AddDays(-7));
+            var lastWeek = visits.Count(v => v.Report.Date > today.AddDays(-14) && v.Report.Date <= today.AddDays(-7));
+
+            var batch = _configuration["ClinicSettings:CurrentBatchNumber"] ?? "";
+            var batchReports = visits.Where(v => v.Report.BatchNumber == batch).Select(v => v.Report).ToList();
 
             var viewModel = new DashboardViewModel
             {
                 TotalPatients = patients.Count,
-                TotalReports = reports.Count,
+                ActivePatients = active.Count,
+                PatientsWithReports = progress.Count,
+                AverageTotalLossKg = progress.Any() ? progress.Average(x => x.LossKg) : 0,
+                AverageTotalLossPercent = progress.Any() ? progress.Average(x => x.LossPercent) : 0,
+                ReachedFivePercent = progress.Count(x => x.LossPercent >= 5),
+                ReachedTenPercent = progress.Count(x => x.LossPercent >= 10),
 
-                // Average Loss (WeightChange is negative for loss, so we multiply by -1 for display)
-                AverageWeightLoss = reports.Any() ? reports.Average(r => r.WeightChange) * -1 : 0,
+                VisitsThisWeek = thisWeek,
+                VisitsLastWeek = lastWeek,
+                VisitsChangePercent = lastWeek > 0 ? (thisWeek - lastWeek) * 100.0 / lastWeek : null,
 
-                // 1. Total Dosage
-                TotalDosageAdministered = Math.Round((double)reports.Sum(r => r.Dosage)),
+                // Average % change from starting weight (negative = loss), by weeks since treatment start.
+                // Weeks with fewer than 5 patients are left out so one patient can't skew the curve.
+                ProgressCurve = visits
+                    .Where(v => v.Patient.StartingWeight > 0 && v.Report.Date >= v.Patient.TreatmentStartDate)
+                    .GroupBy(v => (v.Report.Date.DayNumber - v.Patient.TreatmentStartDate.DayNumber) / 7)
+                    .Where(g => g.Key <= 52)
+                    .Select(g => new
+                    {
+                        Week = g.Key,
+                        // One value per patient per week (their last visit that week)
+                        PerPatient = g.GroupBy(v => v.Patient.PatientId)
+                            .Select(pg => pg.OrderByDescending(v => v.Report.Date).First())
+                            .Select(v => (v.Report.Weight - v.Patient.StartingWeight) / v.Patient.StartingWeight * 100)
+                            .ToList()
+                    })
+                    .Where(w => w.PerPatient.Count >= 5)
+                    .OrderBy(w => w.Week)
+                    .Select(w => new WeekPoint(w.Week, w.PerPatient.Average(), w.PerPatient.Count))
+                    .ToList(),
 
-                // 2. Most Common Side Effect
-                MostCommonSideEffect = reports.SelectMany(r => r.SideEffects)
-                                              .GroupBy(s => s.Name)
-                                              .OrderByDescending(g => g.Count())
-                                              .Select(g => g.Key).FirstOrDefault() ?? "N/A",
+                // Last 12 months, oldest first
+                MonthlyActivity = Enumerable.Range(0, 12).Reverse()
+                    .Select(i => new DateOnly(today.Year, today.Month, 1).AddMonths(-i))
+                    .Select(m => new MonthPoint(
+                        m.ToString("MMM yy"),
+                        patients.Count(p => p.TreatmentStartDate.Year == m.Year && p.TreatmentStartDate.Month == m.Month),
+                        visits.Count(v => v.Report.Date.Year == m.Year && v.Report.Date.Month == m.Month)))
+                    .ToList(),
 
-                // 3. Max Individual Loss (Most negative WeightChange)
-                MaxIndividualLoss = reports.Any() ? reports.Min(r => r.WeightChange) * -1 : 0,
+                // Latest dose of every patient who has had a visit
+                DoseBreakdown = progress
+                    .GroupBy(x => x.Latest!.Dosage)
+                    .Select(g => new DoseCount(g.Key, g.Count()))
+                    .OrderBy(d => d.Dosage)
+                    .ToList(),
 
-                // 4. Reports this week (Assumes you added the Date field)
-                ReportsThisWeek = reports.Count(r => r.Date >= DateOnly.FromDateTime(DateTime.Now.AddDays(-7))),
+                CurrentBatchNumber = batch,
+                BatchMgUsed = batchReports.Sum(r => r.Dosage),
+                BatchVisits = batchReports.Count,
+                BatchFirstUsed = batchReports.Any() ? batchReports.Min(r => r.Date) : null,
 
-                // 5. Non-Responders (Patients whose latest report is >= starting weight)
-                PatientsWithZeroLoss = patients.Count(p => p.Reports.Any() && p.Reports.Last().WeightChange >= 0),
-
-                RecentReports = reports.OrderByDescending(r => r.Date).Take(5).ToList()
+                RecentReports = visits
+                    .OrderByDescending(v => v.Report.Date).ThenByDescending(v => v.Report.ReportId)
+                    .Take(8)
+                    .Select(v => { v.Report.Patient = v.Patient; return v.Report; })
+                    .ToList()
             };
 
-            ViewBag.CurrentBatchNumber = _configuration["ClinicSettings:CurrentBatchNumber"];
             return View(viewModel);
         }
 

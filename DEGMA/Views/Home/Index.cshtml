@@ -1,12 +1,11 @@
-﻿@{
-    ViewData["Title"] = "Home Page";
-}
-
 @model DEGMA.Models.DashboardViewModel
 @inject DEGMA.Services.BackupService BackupService
 
 @{
     ViewData["Title"] = "Dashboard";
+
+    string Pct(int count, int of) => of > 0 ? $"{count * 100.0 / of:0}%" : "0%";
+    var maxDose = Model.DoseBreakdown.Any() ? Model.DoseBreakdown.Max(d => d.Patients) : 1;
 }
 
 <div class="container-fluid px-4 mt-4">
@@ -34,91 +33,228 @@
                 <i class="bi bi-journal-text me-2"></i> All Reports
             </a>
         </div>
-        @* <div class="col-md-3">
-            <i class="bi bi-journal-text me-2"></i> Batch Number: 
-            <form asp-controller="Home" asp-action="UpdateBatchNumber" method="post"
-                  class="d-flex align-items-center gap-3">
-                @Html.AntiForgeryToken()
-                <input type="text" name="batchNumber"
-                       value="@ViewBag.CurrentBatchNumber"
-                       class="form-control form-control-sm"
-                       style="max-width:220px;"
-                       placeholder="4YIS2501A" />
-                <button type="submit" class="btn btn-outline-secondary btn-sm">
-                    <i class="bi bi-save me-1"></i> Update
-                </button>
-            </form>
-
-        </div> *@
-
     </div>
 
-    <!-- Stats Grid -->
+    <!-- Headline Stats -->
     <div class="row g-3 mb-4">
-        <!-- Main 3 Stats -->
-        <div class="col-md-4">
-            <div class="card shadow-sm border-0">
+        <div class="col-md-6 col-xl-3">
+            <div class="card shadow-sm border-0 h-100">
                 <div class="card-body">
-                    <h6 class="text-muted small text-uppercase fw-bold">Unique Patients</h6>
-                    <h1 class="fw-bold mb-0">@Model.TotalPatients</h1>
+                    <h6 class="text-muted small text-uppercase fw-bold">Active Patients</h6>
+                    <h1 class="fw-bold mb-0">@Model.ActivePatients</h1>
+                    <small class="text-muted">seen in the last 30 days, of @Model.TotalPatients total</small>
                 </div>
             </div>
         </div>
-        <div class="col-md-4">
-            <div class="card shadow-sm border-0">
+        <div class="col-md-6 col-xl-3">
+            <div class="card shadow-sm border-0 h-100">
                 <div class="card-body">
-                    <h6 class="text-muted small text-uppercase fw-bold">Avg. Weight Loss</h6>
-                    <h1 class="fw-bold mb-0 text-success">@Model.AverageWeightLoss.ToString("0.0") <small>kg</small></h1>
+                    <h6 class="text-muted small text-uppercase fw-bold">Avg. Total Loss</h6>
+                    <h1 class="fw-bold mb-0 text-success">
+                        @Model.AverageTotalLossKg.ToString("0.0") <small>kg</small>
+                    </h1>
+                    <small class="text-muted">
+                        @Model.AverageTotalLossPercent.ToString("0.0")% of starting weight, per patient
+                    </small>
                 </div>
             </div>
         </div>
-        <div class="col-md-4">
-            <div class="card shadow-sm border-0">
+        <div class="col-md-6 col-xl-3">
+            <div class="card shadow-sm border-0 h-100">
                 <div class="card-body">
-                    <h6 class="text-muted small text-uppercase fw-bold">Total Reports</h6>
-                    <h1 class="fw-bold mb-0">@Model.TotalReports</h1>
+                    <h6 class="text-muted small text-uppercase fw-bold">Clinical Milestones</h6>
+                    <div class="d-flex gap-4">
+                        <div>
+                            <h1 class="fw-bold mb-0 text-info">@Pct(Model.ReachedFivePercent, Model.PatientsWithReports)</h1>
+                            <small class="text-muted">lost 5%+ (@Model.ReachedFivePercent)</small>
+                        </div>
+                        <div>
+                            <h1 class="fw-bold mb-0 text-info">@Pct(Model.ReachedTenPercent, Model.PatientsWithReports)</h1>
+                            <small class="text-muted">lost 10%+ (@Model.ReachedTenPercent)</small>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
+        <div class="col-md-6 col-xl-3">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-body">
+                    <h6 class="text-muted small text-uppercase fw-bold">Visits This Week</h6>
+                    <h1 class="fw-bold mb-0">
+                        @Model.VisitsThisWeek
+                        @if (Model.VisitsChangePercent is double change)
+                        {
+                            var up = change >= 0;
+                            <span class="badge fs-6 align-middle @(up ? "bg-success" : "bg-danger") bg-opacity-25 @(up ? "text-success" : "text-danger")">
+                                @(up ? "▲" : "▼") @Math.Abs(change).ToString("0")%
+                            </span>
+                        }
+                    </h1>
+                    <small class="text-muted">@Model.VisitsLastWeek the week before</small>
+                </div>
+            </div>
+        </div>
+    </div>
 
-        <!-- 5 Additional Stats -->
-        <div class="col-md-2">
-            <div class="card border-0 shadow-sm text-center py-2">
-                <div class="card-body p-2">
-                    <small class="text-muted d-block">Max Loss</small>
-                    <span class="fw-bold text-info h5">@Model.MaxIndividualLoss.ToString("0.0") kg</span>
+    <!-- Progress curve + Near goal -->
+    <div class="row g-3 mb-4">
+        <div class="col-lg-8">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-body">
+                    <h6 class="text-muted small text-uppercase fw-bold mb-1">Typical Progress</h6>
+                    <small class="text-muted d-block mb-3">
+                        Average % change from starting weight, by weeks since treatment start
+                    </small>
+                    @if (Model.ProgressCurve.Any())
+                    {
+                        <div style="height:280px;"><canvas id="progressChart"></canvas></div>
+                    }
+                    else
+                    {
+                        <p class="text-muted small mb-0">Not enough visits yet to draw a curve.</p>
+                    }
                 </div>
             </div>
         </div>
-        <div class="col-md-3">
-            <div class="card border-0 shadow-sm text-center py-2">
-                <div class="card-body p-2">
-                    <small class="text-muted d-block">Common Side Effect</small>
-                    <span class="fw-bold h5">@Model.MostCommonSideEffect</span>
+        <div class="col-lg-4">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-body d-flex flex-column justify-content-center text-center">
+                    <h6 class="text-muted small text-uppercase fw-bold mb-3">Today</h6>
+                    <div id="clockTime" class="fw-bold text-white" style="font-size:3.5rem; line-height:1;">
+                        @DateTime.Now.ToString("HH:mm:ss")
+                    </div>
+                    <div id="clockDate" class="text-muted mt-3 h5 mb-0">
+                        @DateTime.Now.ToString("dddd, d MMMM yyyy")
+                    </div>
                 </div>
             </div>
         </div>
-        <div class="col-md-2">
-            <div class="card border-0 shadow-sm text-center py-2">
-                <div class="card-body p-2">
-                    <small class="text-muted d-block">Total Dosage</small>
-                    <span class="fw-bold h5">@Model.TotalDosageAdministered mg</span>
+    </div>
+
+    <!-- Monthly activity + Doses + Batch -->
+    <div class="row g-3 mb-4">
+        <div class="col-lg-6">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-body">
+                    <h6 class="text-muted small text-uppercase fw-bold mb-1">Monthly Activity</h6>
+                    <small class="text-muted d-block mb-3">New patients and visits, last 12 months</small>
+                    <div style="height:240px;"><canvas id="activityChart"></canvas></div>
                 </div>
             </div>
         </div>
-        <div class="col-md-2">
-            <div class="card border-0 shadow-sm text-center py-2">
-                <div class="card-body p-2">
-                    <small class="text-muted d-block">Reports (7d)</small>
-                    <span class="fw-bold h5">@Model.ReportsThisWeek</span>
+        <div class="col-md-6 col-lg-3">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-body">
+                    <h6 class="text-muted small text-uppercase fw-bold mb-1">Doses</h6>
+                    <small class="text-muted d-block mb-3">Latest dose of each patient</small>
+                    @if (!Model.DoseBreakdown.Any())
+                    {
+                        <p class="text-muted small mb-0">No visits recorded yet.</p>
+                    }
+                    <div style="max-height:240px; overflow-y:auto;">
+                    @foreach (var d in Model.DoseBreakdown)
+                    {
+                        <div class="d-flex align-items-center gap-2 mb-2 small">
+                            <span class="text-nowrap" style="width:64px;">@d.Dosage mg</span>
+                            <div class="progress flex-grow-1" style="height:8px; background-color:var(--bg-input);">
+                                <div class="progress-bar" style="width:@(d.Patients * 100 / maxDose)%"></div>
+                            </div>
+                            <span class="fw-bold text-end" style="width:28px;">@d.Patients</span>
+                        </div>
+                    }
+                    </div>
                 </div>
             </div>
         </div>
-        <div class="col-md-3">
-            <div class="card border-0 shadow-sm text-center py-2">
-                <div class="card-body p-2">
-                    <small class="text-muted d-block">Non-Responders</small>
-                    <span class="fw-bold text-warning h5">@Model.PatientsWithZeroLoss</span>
+        <div class="col-md-6 col-lg-3">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-body">
+                    <h6 class="text-muted small text-uppercase fw-bold mb-3">
+                        <i class="bi bi-box-seam me-2"></i>Current Batch
+                    </h6>
+                    <h4 class="fw-bold mb-3">@(string.IsNullOrEmpty(Model.CurrentBatchNumber) ? "Not set" : Model.CurrentBatchNumber)</h4>
+                    <div class="d-flex justify-content-between small mb-1">
+                        <span class="text-muted">Used from batch</span>
+                        <span class="fw-bold">@Model.BatchMgUsed.ToString("0.##") mg</span>
+                    </div>
+                    <div class="d-flex justify-content-between small mb-1">
+                        <span class="text-muted">Doses given</span>
+                        <span class="fw-bold">@Model.BatchVisits</span>
+                    </div>
+                    <div class="d-flex justify-content-between small mb-3">
+                        <span class="text-muted">First used</span>
+                        <span class="fw-bold">@(Model.BatchFirstUsed?.ToString("dd MMM yyyy") ?? "—")</span>
+                    </div>
+                    @if (User.IsInRole("Doctor"))
+                    {
+                        <form asp-controller="Home" asp-action="UpdateBatchNumber" method="post"
+                              class="d-flex gap-2">
+                            @Html.AntiForgeryToken()
+                            <input type="text" name="batchNumber" required
+                                   value="@Model.CurrentBatchNumber"
+                                   class="form-control form-control-sm"
+                                   placeholder="4YIS2501A" />
+                            <button type="submit" class="btn btn-outline-secondary btn-sm text-nowrap">
+                                <i class="bi bi-save me-1"></i> Update
+                            </button>
+                        </form>
+                    }
+                    @if (TempData["BatchSuccess"] != null)
+                    {
+                        <div class="alert alert-success mt-2 mb-0 py-2 small">
+                            <i class="bi bi-check-circle me-1"></i> @TempData["BatchSuccess"]
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Visits Table -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-transparent border-0 p-3 d-flex justify-content-between align-items-center">
+                    <h5 class="fw-bold text-white mb-0">Recent Visits</h5>
+                    <a asp-controller="Reports" asp-action="Index" class="small">View all</a>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-hover table-sm mb-0">
+                        <thead>
+                            <tr>
+                                <th class="ps-4">Patient</th>
+                                <th>Date</th>
+                                <th>Weight</th>
+                                <th>Change</th>
+                                <th>Dosage</th>
+                                <th class="text-end pe-4">Details</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var report in Model.RecentReports)
+                            {
+                                <tr>
+                                    <td class="ps-4 fw-bold">
+                                        @report.Patient!.Firstname @report.Patient.Surname
+                                    </td>
+                                    <td class="text-muted small">@report.Date.ToString("dd MMM yyyy")</td>
+                                    <td>@report.Weight kg</td>
+                                    <td class="@(report.WeightChange < 0 ? "text-success" : report.WeightChange > 0 ? "text-danger" : "text-muted")">
+                                        @(report.WeightChange > 0 ? "+" : "")@report.WeightChange.ToString("0.0") kg
+                                    </td>
+                                    <td>@report.Dosage mg</td>
+                                    <td class="text-end pe-4">
+                                        <a asp-controller="Patients"
+                                           asp-action="Details"
+                                           asp-route-id="@report.PatientId"
+                                           class="btn btn-sm btn-outline-secondary py-0">
+                                            Profile
+                                        </a>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>
@@ -277,12 +413,6 @@
                                     @TempData["ImportSuccess"]
                                 </div>
                             }
-                            @if (TempData["BatchSuccess"] != null)
-                            {
-                                <div class="alert alert-success mt-2 mb-0 py-2 small">
-                                    <i class="bi bi-check-circle me-1"></i> @TempData["BatchSuccess"]
-                                </div>
-                            }
                             @if (TempData["ImportError"] != null)
                             {
                                 <div class="alert alert-danger mt-3 mb-0 py-2 small">
@@ -312,54 +442,83 @@
             </div>
         </div>
     </div>
-    
-    
-   
-
-    <!-- Recent Activity Table -->
-    <div class="row mt-2">
-        <div class="col-12">
-            <div class="card shadow-sm border-0">
-                <div class="card-header bg-transparent border-0 p-3">
-                    <h5 class="fw-bold text-white mb-0">Recent Activity</h5>
-                </div>
-                <div class="table-responsive">
-                    <table class="table table-hover mb-0">
-                        <thead>
-                            <tr>
-                                <th class="ps-4">Patient</th>
-                                <th>Date</th>
-                                <th>Weight</th>
-                                <th>Dosage</th>
-                                <th class="text-end pe-4">Details</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach (var report in Model.RecentReports)
-                            {
-                                <tr>
-                                    <td class="ps-4 fw-bold">
-                                        @report.Patient.Firstname @report.Patient.Surname
-                                    </td>
-                                    <td class="text-muted small">
-                                        @report.Date.ToShortDateString()
-                                    </td>
-                                    <td>@report.Weight kg</td>
-                                    <td>@report.Dosage mg</td>
-                                    <td class="text-end pe-4">
-                                        <a asp-controller="Patients"
-                                               asp-action="Details"
-                                               asp-route-id="@report.PatientId"
-                                               class="btn btn-sm btn-outline-secondary py-0">
-                                            Profile
-                                        </a>
-                                    </td>
-                                </tr>
-                            }
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-    </div>
 </div>
+
+@section Scripts {
+    <script src="~/lib/chartjs/chart.umd.min.js"></script>
+    <script>
+        (function () {
+            const text = '#ced4da', grid = '#373b3e', blue = '#3d8bfd', green = '#198754';
+            Chart.defaults.color = text;
+            Chart.defaults.borderColor = grid;
+            Chart.defaults.font.family = "'Inter', system-ui, -apple-system, sans-serif";
+
+            const curve = @Json.Serialize(Model.ProgressCurve);
+            const progressEl = document.getElementById('progressChart');
+            if (progressEl && curve.length) {
+                new Chart(progressEl, {
+                    type: 'line',
+                    data: {
+                        labels: curve.map(p => 'Wk ' + p.week),
+                        datasets: [{
+                            label: 'Avg % change',
+                            data: curve.map(p => p.averageChangePercent),
+                            borderColor: blue,
+                            backgroundColor: 'rgba(61,139,253,0.15)',
+                            fill: 'origin',
+                            tension: 0.3,
+                            pointRadius: 2
+                        }]
+                    },
+                    options: {
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: {
+                                callbacks: {
+                                    label: ctx => `${ctx.parsed.y.toFixed(1)}% (${curve[ctx.dataIndex].patients} patients)`
+                                }
+                            }
+                        },
+                        scales: {
+                            y: { max: 0, ticks: { callback: v => v + '%' } },
+                            x: { grid: { display: false }, ticks: { maxTicksLimit: 14 } }
+                        }
+                    }
+                });
+            }
+
+            const months = @Json.Serialize(Model.MonthlyActivity);
+            new Chart(document.getElementById('activityChart'), {
+                type: 'bar',
+                data: {
+                    labels: months.map(m => m.label),
+                    datasets: [
+                        { label: 'Visits', data: months.map(m => m.visits), backgroundColor: blue, yAxisID: 'y' },
+                        { label: 'New patients', data: months.map(m => m.newPatients), backgroundColor: green, yAxisID: 'y1' }
+                    ]
+                },
+                options: {
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'bottom', labels: { boxWidth: 12 } } },
+                    scales: {
+                        y: { beginAtZero: true, position: 'left', title: { display: true, text: 'Visits' } },
+                        y1: { beginAtZero: true, position: 'right', grid: { display: false },
+                              ticks: { precision: 0 }, title: { display: true, text: 'New patients' } },
+                        x: { grid: { display: false } }
+                    }
+                }
+            });
+
+            const timeEl = document.getElementById('clockTime');
+            const dateEl = document.getElementById('clockDate');
+            function tick() {
+                const now = new Date();
+                timeEl.textContent = now.toLocaleTimeString('en-GB', { hour12: false });
+                dateEl.textContent = now.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+            }
+            tick();
+            setInterval(tick, 1000);
+        })();
+    </script>
+}

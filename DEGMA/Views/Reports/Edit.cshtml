@@ -2,121 +2,143 @@
 
 @{
     ViewData["Title"] = "Edit Report";
+
+    var prevVF = (decimal?)ViewBag.PreviousVisceralFat;
+    var prevMM = (decimal?)ViewBag.PreviousMuscleMass;
 }
 
-<div class="container mt-5">
-    <div class="row justify-content-center">
-        <div class="col-md-9">
-            <div class="card shadow-sm border-0">
-                <div class="card-body p-5">
-                    <div class="mb-4">
-                        <h2 class="fw-bold text-warning">Edit Report</h2>
-                        <p class="text-muted">
-                            Editing Week @Model.WeekNumber report for
-                            <strong class="text-white">
-                                @Model.Patient?.Firstname @Model.Patient?.Surname
-                            </strong>
-                        </p>
-                    </div>
-
-                    <form asp-action="Edit" method="post">
-                        @Html.AntiForgeryToken()
-                        <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
-                        <input type="hidden" asp-for="ReportId" />
-                        <input type="hidden" asp-for="PatientId" />
-                        <input type="hidden" asp-for="ReportNumber" />
-
-                        <div class="row mb-3">
-                            <div class="col-md-4">
-                                <label asp-for="WeekNumber" class="form-label fw-bold small text-uppercase"></label>
-                                <input asp-for="WeekNumber" class="form-control" readonly />
-                            </div>
-                            <div class="col-md-4">
-                                <label asp-for="Date" class="form-label fw-bold small text-uppercase"></label>
-                                <input asp-for="Date" class="form-control" type="date"
-                                       value="@Model.Date.ToString("yyyy-MM-dd")" />
-                                <span asp-validation-for="Date" class="text-danger"></span>
-                            </div>
-                            <div class="col-md-4">
-                                <label asp-for="Dosage" class="form-label fw-bold small text-uppercase">Dosage (mg)</label>
-                                <input asp-for="Dosage" class="form-control"
-                                       value="@Model.Dosage.ToString(System.Globalization.CultureInfo.InvariantCulture)" />
-                                <span asp-validation-for="Dosage" class="text-danger"></span>
-                            </div>
-                        </div>
-
-                        <div class="row mb-4">
-                            <div class="col-md-4">
-                                <label asp-for="Weight" class="form-label fw-bold small text-uppercase">Weight (kg)</label>
-                                <input asp-for="Weight" class="form-control" id="weightInput"
-                                       value="@Model.Weight.ToString(System.Globalization.CultureInfo.InvariantCulture)" />
-                                <span asp-validation-for="Weight" class="text-danger"></span>
-                            </div>
-                            <div class="col-md-4">
-                                <label asp-for="WeightChange" class="form-label fw-bold small text-uppercase">Weight Change</label>
-                                <input asp-for="WeightChange" class="form-control" id="weightChangeDisplay"
-                                       readonly
-                                       value="@Model.WeightChange.ToString(System.Globalization.CultureInfo.InvariantCulture)" />
-                                <input type="hidden" id="weightChangeHidden" name="WeightChange"
-                                       value="@Model.WeightChange.ToString(System.Globalization.CultureInfo.InvariantCulture)" />
-                            </div>
-                            <div class="col-md-4">
-                                <label class="form-label fw-bold small text-uppercase">Original Weight Change</label>
-                                <input class="form-control" readonly
-                                       value="@Model.WeightChange.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture) kg"
-                                       style="color: @(Model.WeightChange <= 0 ? "#28a745" : "#dc3545")" />
-                            </div>
-                        </div>
-
-                        <div class="row mb-4">
-                            <div class="col-md-12">
-                                <label asp-for="Notes" class="form-label fw-bold small text-uppercase"></label>
-                                <textarea asp-for="Notes" class="form-control" rows="2"
-                                          placeholder="Observation notes...">@Model.Notes</textarea>
-                            </div>
-                        </div>
-
-                        <!-- Side Effects -->
-                        <div class="mb-4">
-                            <label class="form-label fw-bold small text-uppercase mb-2 text-muted">
-                                Observed Side Effects
-                            </label>
-                            <div class="p-3 rounded border bg-dark text-light"
-                                 style="max-height:200px; overflow-y:auto; border-color: var(--border) !important;">
-                                <div class="row">
-                                    @foreach (var se in ViewBag.AllSideEffects as List<DEGMA.Models.SideEffect>)
-                                    {
-                                        var isChecked = Model.SideEffects.Any(s => s.SideEffectId == se.SideEffectId);
-                                        <div class="col-md-4 mb-2">
-                                            <div class="form-check">
-                                                <input class="form-check-input" type="checkbox"
-                                                       name="selectedSideEffects"
-                                                       value="@se.SideEffectId"
-                                                       id="se_@se.SideEffectId"
-                                                @(isChecked ? "checked" : "") />
-                                                <label class="form-check-label" for="se_@se.SideEffectId">
-                                                    @se.Name
-                                                </label>
-                                            </div>
-                                        </div>
-                                    }
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="d-flex justify-content-between align-items-center mt-5 pt-3 border-top">
-                            <a asp-controller="Patients" asp-action="Details"
-                                   asp-route-id="@Model.PatientId"
-                                   class="text-decoration-none text-muted">
-                                <i class="bi bi-arrow-left"></i> Back to Patient
-                            </a>
-                            <button type="submit" class="btn btn-warning px-5 py-2 fw-bold text-dark">
-                                Save Changes
-                            </button>
-                        </div>
-                    </form>
-                </div>
+<div class="container-fluid px-5 mt-4" style="max-width: 2000px;">
+    <div class="card shadow-sm border-0">
+        <div class="card-body p-4">
+            <div class="mb-3">
+                <h2 class="fw-bold text-warning mb-0">Edit Report</h2>
+                <p class="text-muted small">
+                    Editing Week @Model.WeekNumber report for
+                    <strong class="text-white">@Model.Patient?.Firstname @Model.Patient?.Surname</strong>
+                </p>
             </div>
+
+            <form asp-action="Edit" method="post">
+                @Html.AntiForgeryToken()
+                <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+                <input type="hidden" asp-for="ReportId" />
+                <input type="hidden" asp-for="PatientId" />
+                <input type="hidden" asp-for="ReportNumber" />
+
+                @* Row 1: Week, Date, Dosage, Batch Number *@
+                <div class="row mb-3">
+                    <div class="col-md-2">
+                        <label asp-for="WeekNumber" class="form-label fw-bold small text-uppercase"></label>
+                        <input asp-for="WeekNumber" class="form-control" readonly />
+                    </div>
+                    <div class="col-md-3">
+                        <label asp-for="Date" class="form-label fw-bold small text-uppercase"></label>
+                        <input asp-for="Date" class="form-control" type="date"
+                               value="@Model.Date.ToString("yyyy-MM-dd")" />
+                        <span asp-validation-for="Date" class="text-danger"></span>
+                    </div>
+                    <div class="col-md-2">
+                        <label asp-for="Dosage" class="form-label fw-bold small text-uppercase">Dosage (mg)</label>
+                        <input asp-for="Dosage" class="form-control"
+                               value="@Model.Dosage.ToString(System.Globalization.CultureInfo.InvariantCulture)" />
+                        <span asp-validation-for="Dosage" class="text-danger"></span>
+                    </div>
+                    <div class="col-md-3">
+                        <label asp-for="BatchNumber" class="form-label fw-bold small text-uppercase">Batch Number</label>
+                        <input asp-for="BatchNumber" class="form-control"
+                               value="@(Model.BatchNumber ?? ViewBag.CurrentBatchNumber ?? "")" />
+                        <span class="text-muted small mt-1 d-block" style="font-size:10px;">
+                            Edit if this report used a different batch.
+                        </span>
+                    </div>
+                </div>
+
+                @* Row 2: Weight, Weight Change, Original Weight Change, Notes *@
+                <div class="row mb-3">
+                    <div class="col-md-2">
+                        <label asp-for="Weight" class="form-label fw-bold small text-uppercase">Weight (kg)</label>
+                        <input asp-for="Weight" class="form-control" id="weightInput"
+                               value="@Model.Weight.ToString(System.Globalization.CultureInfo.InvariantCulture)" />
+                        <span asp-validation-for="Weight" class="text-danger"></span>
+                    </div>
+                    <div class="col-md-2">
+                        <label asp-for="WeightChange" class="form-label fw-bold small text-uppercase">Weight Change</label>
+                        <input asp-for="WeightChange" class="form-control" id="weightChangeDisplay" readonly
+                               value="@Model.WeightChange.ToString(System.Globalization.CultureInfo.InvariantCulture)" />
+                        <input type="hidden" id="weightChangeHidden" name="WeightChange"
+                               value="@Model.WeightChange.ToString(System.Globalization.CultureInfo.InvariantCulture)" />
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label fw-bold small text-uppercase">Original Change</label>
+                        <input class="form-control" readonly
+                               value="@Model.WeightChange.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture) kg"
+                               style="color: @(Model.WeightChange <= 0 ? "#28a745" : "#dc3545")" />
+                    </div>
+                    <div class="col-md-6">
+                        <label asp-for="Notes" class="form-label fw-bold small text-uppercase"></label>
+                        <input asp-for="Notes" class="form-control"
+                               value="@Model.Notes"
+                               placeholder="Observation notes..." />
+                    </div>
+                </div>
+
+                @* Row 3: Visceral Fat + Muscle Mass *@
+                <div class="row mb-3">
+                    <div class="col-md-3">
+                        <label asp-for="VisceralFat" class="form-label fw-bold small text-uppercase">Visceral Fat (kg)</label>
+                        <input asp-for="VisceralFat" id="visceralFatInput" class="form-control"
+                               value="@(Model.VisceralFat?.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture) ?? "")"
+                               placeholder="Optional" />
+                        <div id="visceralFatWarning" class="text-muted small mt-1" style="display:none;"></div>
+                    </div>
+                    <div class="col-md-3">
+                        <label asp-for="MuscleMass" class="form-label fw-bold small text-uppercase">Muscle Mass (kg)</label>
+                        <input asp-for="MuscleMass" id="muscleMassInput" class="form-control"
+                               value="@(Model.MuscleMass?.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture) ?? "")"
+                               placeholder="Optional" />
+                        <div id="muscleMassWarning" class="text-muted small mt-1" style="display:none;"></div>
+                    </div>
+                </div>
+
+                @* Row 4: Side Effects *@
+                <div class="mb-3">
+                    <label class="form-label fw-bold small text-uppercase mb-2 text-muted">
+                        Observed Side Effects
+                    </label>
+                    <div class="p-3 rounded border bg-dark text-light"
+                         style="max-height: 150px; overflow-y: auto; border-color: var(--border) !important;">
+                        <div class="row row-cols-4 g-1">
+                            @foreach (var se in ViewBag.AllSideEffects as List<DEGMA.Models.SideEffect>)
+                            {
+                                var isChecked = Model.SideEffects.Any(s => s.SideEffectId == se.SideEffectId);
+                                <div class="col">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox"
+                                               name="selectedSideEffects"
+                                               value="@se.SideEffectId"
+                                               id="se_@se.SideEffectId"
+                                        @(isChecked ? "checked" : "") />
+                                        <label class="form-check-label small" for="se_@se.SideEffectId">
+                                            @se.Name
+                                        </label>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </div>
+
+                <div class="d-flex justify-content-between align-items-center pt-3 border-top">
+                    <a asp-controller="Patients" asp-action="Details"
+                       asp-route-id="@Model.PatientId"
+                       class="text-decoration-none text-muted">
+                        <i class="bi bi-arrow-left"></i> Back to Patient
+                    </a>
+                    <button type="submit" class="btn btn-warning px-5 fw-bold text-dark">
+                        Save Changes
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
@@ -126,16 +148,53 @@
         await Html.RenderPartialAsync("_ValidationScriptsPartial");
     }
     <script>
-        // Recalculate weight change display as user types
         const originalWeight = @Model.Weight.ToString(System.Globalization.CultureInfo.InvariantCulture);
 
-        document.getElementById('weightInput').addEventListener('input', function () {
+        document.getElementById('weightInput').addEventListener('input', function() {
             const newWeight = parseFloat(this.value);
             if (isNaN(newWeight)) return;
-
             const change = (newWeight - originalWeight).toFixed(2);
             document.getElementById('weightChangeDisplay').value = change;
             document.getElementById('weightChangeHidden').value = change;
+        });
+
+        const baselineVisceralFat = @(prevVF != null ? prevVF.Value.ToString(System.Globalization.CultureInfo.InvariantCulture) : "null");
+        const baselineMuscleMass = @(prevMM != null ? prevMM.Value.ToString(System.Globalization.CultureInfo.InvariantCulture) : "null");
+
+        function normalizeVal(v) {
+            if (v === null || v === undefined) return '';
+            const s = String(v).trim();
+            if (s === '') return '';
+            const num = parseFloat(s);
+            if (isNaN(num)) return '';
+            return num.toFixed(2);
+        }
+
+        function checkUnchanged(inputId, warningId, baseline) {
+            const current = normalizeVal(document.getElementById(inputId).value);
+            const base = normalizeVal(baseline);
+
+            const input = document.getElementById(inputId);
+            const warning = document.getElementById(warningId);
+
+            if (current === base) {
+                input.style.borderColor = '#6c757d';
+                warning.textContent = base === '' ? 'Not measured for this patient yet' : 'No change from previous reading';
+                warning.style.display = 'block';
+            } else {
+                input.style.borderColor = '';
+                warning.style.display = 'none';
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            checkUnchanged('visceralFatInput', 'visceralFatWarning', baselineVisceralFat);
+            checkUnchanged('muscleMassInput', 'muscleMassWarning', baselineMuscleMass);
+
+            document.getElementById('visceralFatInput').addEventListener('input', () =>
+                checkUnchanged('visceralFatInput', 'visceralFatWarning', baselineVisceralFat));
+            document.getElementById('muscleMassInput').addEventListener('input', () =>
+                checkUnchanged('muscleMassInput', 'muscleMassWarning', baselineMuscleMass));
         });
     </script>
 }

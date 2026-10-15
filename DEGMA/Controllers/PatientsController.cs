@@ -1,5 +1,6 @@
 ﻿using DEGMA.Data;
 using DEGMA.Models;
+using DEGMA.Services;
 using DinkToPdf;
 using DinkToPdf.Contracts;
 using Microsoft.AspNetCore.Authorization;
@@ -19,14 +20,17 @@ namespace DEGMA.Controllers
         private readonly IConverter _pdfConverter;
         private readonly ICompositeViewEngine _viewEngine;
         private readonly ITempDataProvider _tempDataProvider;
+        private readonly EmailService _emailService;
 
         public PatientsController(ApplicationDbContext context, IConverter pdfConverter,
-            ICompositeViewEngine viewEngine, ITempDataProvider tempDataProvider)
+            ICompositeViewEngine viewEngine, ITempDataProvider tempDataProvider,
+            EmailService emailService)
         {
             _context = context;
             _pdfConverter = pdfConverter;
             _viewEngine = viewEngine;
             _tempDataProvider = tempDataProvider;
+            _emailService = emailService;
         }
 
         // GET: Patients
@@ -84,7 +88,7 @@ namespace DEGMA.Controllers
             if (id == null) return NotFound();
 
             var patient = await _context.Patients
-                .Include(p => p.Reports.OrderBy(r => r.Date))
+                .Include(p => p.Reports.OrderByDescending(r => r.Date))
                 .ThenInclude(r => r.SideEffects)
                 .FirstOrDefaultAsync(m => m.PatientId == id);
 
@@ -310,5 +314,83 @@ namespace DEGMA.Controllers
             await viewResult.View.RenderAsync(viewContext);
             return sw.ToString();
         }
+        // GET: Show confirmation modal data
+        [HttpGet]
+        public async Task<IActionResult> EmailReportConfirm(int id)
+        {
+            var patient = await _context.Patients
+                .FirstOrDefaultAsync(p => p.PatientId == id);
+
+            if (patient == null) return NotFound();
+
+            return Json(new
+            {
+                patientName = $"{patient.Firstname} {patient.Surname}",
+                patientEmail = patient.Email,
+                patientId = patient.PatientId
+            });
+        }
+
+        // POST: Generate PDF and send email
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [Authorize(Roles = "Doctor")]
+        public async Task<IActionResult> EmailReport(int id)
+        {
+            var patient = await _context.Patients
+                .Include(p => p.Reports)
+                .FirstOrDefaultAsync(p => p.PatientId == id);
+
+            if (patient == null) return NotFound();
+
+            // Generate the PDF
+            var html = await RenderViewToString("ReportTemplate", patient);
+
+            var doc = new HtmlToPdfDocument()
+            {
+                GlobalSettings = {
+            ColorMode   = ColorMode.Color,
+            Orientation = Orientation.Portrait,
+            PaperSize   = PaperKind.A4,
+            Margins     = new MarginSettings { Top = 10, Bottom = 10, Left = 10, Right = 10 },
+            DPI         = 150
+        },
+                Objects = {
+            new ObjectSettings {
+                HtmlContent = html,
+                WebSettings = {
+                    DefaultEncoding       = "utf-8",
+                    EnableIntelligentShrinking = true,
+                    PrintMediaType        = false
+                }
+            }
+        }
+            };
+
+            var pdf = _pdfConverter.Convert(doc);
+            var filename = $"Report_{patient.Surname}_{patient.Firstname}_{DateTime.Now:yyyyMMdd}.pdf";
+
+            // Send the email
+            try
+            {
+                await _emailService.SendReportAsync(
+                    recipientEmail: patient.Email,
+                    recipientName: $"{patient.Firstname} {patient.Surname}",
+                    subject: $"Treatment Report — {patient.Firstname} {patient.Surname}",
+                    body: $"Dear {patient.Firstname},\n\nPlease find your treatment report attached.\n\nKind regards,\nYour Clinic",
+                    pdfAttachment: pdf,
+                    attachmentFilename: filename
+                );
+
+                TempData["EmailSuccess"] = $"Report successfully sent to {patient.Email}.";
+            }
+            catch (Exception ex)
+            {
+                TempData["EmailError"] = $"Failed to send email: {ex.Message}";
+            }
+
+            return RedirectToAction("Details", new { id });
+        }
+
     }
 }

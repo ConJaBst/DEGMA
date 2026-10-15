@@ -4,16 +4,24 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Diagnostics;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 
 namespace DEGMA.Controllers
 {
     public class HomeController : Controller
     {
         private readonly ApplicationDbContext _context;
+        private readonly IWebHostEnvironment _env;
+        private readonly IConfiguration _configuration;
 
-        public HomeController(ApplicationDbContext context)
+        public HomeController(ApplicationDbContext context,
+            IWebHostEnvironment env,
+            IConfiguration configuration)
         {
             _context = context;
+            _env = env;
+            _configuration = configuration;
         }
 
 
@@ -79,6 +87,7 @@ namespace DEGMA.Controllers
                 RecentReports = reports.OrderByDescending(r => r.Date).Take(5).ToList()
             };
 
+            ViewBag.CurrentBatchNumber = _configuration["ClinicSettings:CurrentBatchNumber"];
             return View(viewModel);
         }
 
@@ -92,6 +101,26 @@ namespace DEGMA.Controllers
         public IActionResult Error()
         {
             return View(new ErrorViewModel { RequestId = Activity.Current?.Id ?? HttpContext.TraceIdentifier });
+        }
+
+        [HttpPost]
+        [Authorize(Roles = "Doctor")]
+        public IActionResult UpdateBatchNumber(string batchNumber)
+        {
+            var appSettingsPath = Path.Combine(_env.ContentRootPath, "appsettings.json");
+            var json = System.IO.File.ReadAllText(appSettingsPath);
+            var node = JsonNode.Parse(json)!;
+
+            node["ClinicSettings"]!["CurrentBatchNumber"] = batchNumber;
+
+            System.IO.File.WriteAllText(appSettingsPath,
+                node.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
+
+            // Reload configuration so it takes effect immediately
+            _configuration["ClinicSettings:CurrentBatchNumber"] = batchNumber;
+
+            TempData["BatchSuccess"] = $"Batch number updated to {batchNumber}.";
+            return RedirectToAction("Index");
         }
     }
 }

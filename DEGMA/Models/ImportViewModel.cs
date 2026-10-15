@@ -22,7 +22,11 @@
         public string DuplicateAction { get; set; } = "none";
         public bool IsDuplicate { get; set; } = false;
         public int? ExistingPatientId { get; set; } = null;
+        public string VisceralFat { get; set; } = "";
+        public string MuscleMass { get; set; } = "";
+        public string BatchNumber { get; set; } = "";
         public List<string> NewSideEffects { get; set; } = new();
+
     }
 
     public class ImportViewModel

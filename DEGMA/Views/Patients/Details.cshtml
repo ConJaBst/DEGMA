@@ -1,17 +1,78 @@
 ﻿@model DEGMA.Models.Patient
+@using System.Globalization
 
 @{
     ViewData["Title"] = "Patient Profile";
-    var currentWeight = Model.Reports.LastOrDefault()?.Weight ?? Model.StartingWeight;
+    var currentWeight = Model.Reports
+    .OrderByDescending(r => r.Date)
+    .FirstOrDefault()?.Weight ?? Model.StartingWeight;
     var totalLost = currentWeight - Model.StartingWeight;
+    var reportsAscending = Model.Reports.OrderBy(r => r.Date).ToList();
+    bool hasVisceralFat = Model.Reports.Any(r => r.VisceralFat != null);
+    bool hasMuscleMass = Model.Reports.Any(r => r.MuscleMass != null);
+
+    var muscleMassReport = Model.Reports
+        .Where(r => r.MuscleMass.HasValue)
+        .OrderByDescending(r => r.Date)
+        .FirstOrDefault();
+
+    decimal? muscleMassPercent = null;
+    if (muscleMassReport != null && muscleMassReport.Weight > 0)
+        muscleMassPercent = (muscleMassReport.MuscleMass!.Value / (decimal)muscleMassReport.Weight) * 100;
+
+    var visceralFatReport = Model.Reports
+        .Where(r => r.VisceralFat.HasValue)
+        .OrderByDescending(r => r.Date)
+        .FirstOrDefault();
+
+    decimal? visceralFatPercent = null;
+    if (visceralFatReport != null && visceralFatReport.Weight > 0)
+        visceralFatPercent = (visceralFatReport.VisceralFat!.Value / (decimal)visceralFatReport.Weight) * 100;
 }
 
 <div class="container mt-4">
+
+    @* Email / error alerts *@
+    @if (TempData["EmailSuccess"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show mb-3" role="alert">
+            <i class="bi bi-check-circle me-2"></i>@TempData["EmailSuccess"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+    @if (TempData["EmailError"] != null)
+    {
+        <div class="alert alert-danger alert-dismissible fade show mb-3" role="alert">
+            <i class="bi bi-x-circle me-2"></i>@TempData["EmailError"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
     <!-- Header -->
     <div class="row mb-4 align-items-end">
         <div class="col-md-7">
             <h1 class="fw-bold text-white mb-0">@Model.Firstname @Model.Surname</h1>
-            <p class="text-muted">Treatment started on @Model.TreatmentStartDate.ToShortDateString()</p>
+            <p class="text-muted mb-1">Treatment started on @Model.TreatmentStartDate.ToShortDateString()</p>
+
+            @if (muscleMassPercent.HasValue || visceralFatPercent.HasValue)
+            {
+                <div class="d-flex gap-2 flex-wrap">
+                    @if (muscleMassPercent.HasValue)
+                    {
+                        <span class="badge bg-dark border border-secondary text-light">
+                            Muscle Mass: @muscleMassPercent.Value.ToString("0.0", CultureInfo.InvariantCulture)%
+                            <span class="text-muted">(as of @muscleMassReport!.Date.ToShortDateString())</span>
+                        </span>
+                    }
+                    @if (visceralFatPercent.HasValue)
+                    {
+                        <span class="badge bg-dark border border-secondary text-light">
+                            Visceral Fat: @visceralFatPercent.Value.ToString("0.0", CultureInfo.InvariantCulture)%
+                            <span class="text-muted">(as of @visceralFatReport!.Date.ToShortDateString())</span>
+                        </span>
+                    }
+                </div>
+            }
         </div>
         <div class="col-md-5 text-md-end">
             <a asp-action="Edit" asp-route-id="@Model.PatientId"
@@ -24,6 +85,11 @@
                    class="btn btn-outline-light btn-sm ms-2">
                 <i class="bi bi-download"></i> Download PDF
             </a>
+            <button type="button"
+                    class="btn btn-outline-success btn-sm ms-2"
+                    onclick="openEmailModal(@Model.PatientId)">
+                <i class="bi bi-envelope"></i> Email Report
+            </button>
             <a asp-controller="Reports" asp-action="Create"
                asp-route-patientId="@Model.PatientId"
                class="btn btn-primary btn-sm ms-2">+ Log New Entry</a>
@@ -93,6 +159,15 @@
                                     <th>Weight</th>
                                     <th>Change</th>
                                     <th>Dosage</th>
+                                    <th>Batch</th>
+                                    @if (hasVisceralFat)
+                                    {
+                                        <th>Visceral Fat</th>
+                                    }
+                                    @if (hasMuscleMass)
+                                    {
+                                        <th>Muscle Mass</th>
+                                    }
                                     <th>Side Effects</th>
                                     <th>Notes</th>
                                     <th class="text-end pe-4">Actions</th>
@@ -115,6 +190,25 @@
                                                 @report.Dosage mg
                                             </span>
                                         </td>
+                                        <td class="small text-muted">
+                                            @(string.IsNullOrEmpty(report.BatchNumber) ? "—" : report.BatchNumber)
+                                        </td>
+                                        @if (hasVisceralFat)
+                                        {
+                                            <td class="text-muted">
+                                                @(report.VisceralFat.HasValue
+                                                    ? report.VisceralFat.Value.ToString("0.00", CultureInfo.InvariantCulture) + " kg"
+                                                    : "—")
+                                            </td>
+                                        }
+                                        @if (hasMuscleMass)
+                                        {
+                                            <td class="text-muted">
+                                                @(report.MuscleMass.HasValue
+                                                    ? report.MuscleMass.Value.ToString("0.00", CultureInfo.InvariantCulture) + " kg"
+                                                    : "—")
+                                            </td>
+                                        }
                                         <td class="small">
                                             @foreach (var se in report.SideEffects)
                                             {
@@ -179,32 +273,62 @@
             </div>
         </div>
     </div>
+
+    <!-- Email Confirmation Modal -->
+    <div class="modal fade" id="emailModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border border-secondary" style="background-color:#16213e;">
+                <div class="modal-header border-bottom border-secondary border-opacity-25">
+                    <h5 class="modal-title text-white">
+                        <i class="bi bi-envelope me-2"></i>Email Report
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white"
+                            data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body text-muted">
+                    <p>This will generate and send the full PDF report to:</p>
+                    <p class="text-white fw-bold mb-0" id="emailModalName"></p>
+                    <p class="text-info small" id="emailModalEmail"></p>
+                    <p class="small mt-2">Are you sure you want to send it?</p>
+                </div>
+                <div class="modal-footer border-top border-secondary border-opacity-25">
+                    <button type="button" class="btn btn-outline-secondary btn-sm"
+                            data-bs-dismiss="modal">
+                        Cancel
+                    </button>
+                    <form id="emailForm" method="post">
+                        @Html.AntiForgeryToken()
+                        <button type="submit" class="btn btn-success btn-sm">
+                            <i class="bi bi-send me-1"></i> Send Report
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
 </div>
 
 @section Scripts {
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <script>
-        // Weight chart
         const ctx = document.getElementById('weightChart').getContext('2d');
 
-        const labels = ['Start', @foreach (var r in Model.Reports) {
+        const labels = ['Start', @foreach (var r in reportsAscending) {
         <text>'Wk @r.WeekNumber',</text>
-    }
-    ];
-    const weightData = [
-    @Model.StartingWeight.ToString(System.Globalization.CultureInfo.InvariantCulture),
-    @foreach (var r in Model.Reports)
-    {
-        <text>@r.Weight.ToString(System.Globalization.CultureInfo.InvariantCulture),</text>
-    }
+        }
     ];
 
-    new Chart(ctx, {
-    type: 'line',
-    data: {
-    labels: labels,
-    datasets: [{
+    const weightData = [
+        @Model.StartingWeight.ToString(CultureInfo.InvariantCulture),
+        @foreach (var r in reportsAscending)
+        {
+            <text>@r.Weight.ToString(CultureInfo.InvariantCulture),</text>
+        }
+    ];
+
+    const datasets = [{
     label: 'Weight (kg)',
     data: weightData,
     borderColor: '#3d8bfd',
@@ -213,14 +337,14 @@
     tension: 0.35,
     fill: true,
     pointRadius: 4,
-    pointBackgroundColor: '#3d8bfd'
-    }]
-    },
-    options: {
-    responsive: true,
-    maintainAspectRatio: false,
-    scales: {
+    pointBackgroundColor: '#3d8bfd',
+    yAxisID: 'y'
+    }];
+
+    const scales = {
     y: {
+    type: 'linear',
+    position: 'left',
     beginAtZero: false,
     grid: { color: 'rgba(255, 255, 255, 0.05)' },
     ticks: { color: '#6c757d' }
@@ -229,9 +353,55 @@
     grid: { display: false },
     ticks: { color: '#6c757d' }
     }
-    },
+    };
+
+    @if (hasVisceralFat)
+    {
+        <text>
+            const visceralFatData = [
+            null,
+            @foreach (var r in reportsAscending)
+            {
+                <text>@(r.VisceralFat.HasValue ? r.VisceralFat.Value.ToString(CultureInfo.InvariantCulture) : "null"),</text>
+            }
+            ];
+
+            datasets.push({
+            label: 'Visceral Fat (kg)',
+            data: visceralFatData,
+            borderColor: '#f59f00',
+            backgroundColor: 'rgba(245, 159, 0, 0.1)',
+            borderWidth: 2,
+            tension: 0.35,
+            fill: false,
+            pointRadius: 4,
+            pointBackgroundColor: '#f59f00',
+            spanGaps: true,
+            yAxisID: 'y1'
+            });
+
+            scales.y1 = {
+            type: 'linear',
+            position: 'right',
+            beginAtZero: false,
+            grid: { drawOnChartArea: false },
+            ticks: { color: '#f59f00' }
+            };
+        </text>
+    }
+
+    new Chart(ctx, {
+    type: 'line',
+    data: { labels: labels, datasets: datasets },
+    options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    scales: scales,
     plugins: {
-    legend: { display: false }
+    legend: {
+    display: @(hasVisceralFat ? "true" : "false"),
+    labels: { color: '#adb5bd' }
+    }
     }
     }
     });
@@ -245,5 +415,17 @@
     document.getElementById('modalWeekLabel').textContent = `Week ${week}`;
     document.getElementById('deleteForm').action = `/Reports/Delete/${reportId}`;
     });
+
+    // Email modal
+    function openEmailModal(patientId) {
+    fetch(`/Patients/EmailReportConfirm/${patientId}`)
+    .then(r => r.json())
+    .then(data => {
+    document.getElementById('emailModalName').textContent  = data.patientName;
+    document.getElementById('emailModalEmail').textContent = data.patientEmail;
+    document.getElementById('emailForm').action = `/Patients/EmailReport/${patientId}`;
+    new bootstrap.Modal(document.getElementById('emailModal')).show();
+    });
+    }
 </script>
 }

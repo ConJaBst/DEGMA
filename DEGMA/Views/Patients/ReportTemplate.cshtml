@@ -9,16 +9,40 @@
     var isLoss = totalLost <= 0;
     var weeks = Model.Reports.Count;
 
-    // --- SVG Chart ---
-    var allPoints = new List<(string label, double weight)>();
-    allPoints.Add(("Start", Model.StartingWeight));
-    foreach (var r in Model.Reports.OrderBy(r => r.WeekNumber))
-        allPoints.Add(($"Wk {r.WeekNumber}", r.Weight));
+    var orderedReports = Model.Reports.OrderBy(r => r.WeekNumber).ToList();
 
-    int svgW = 720;
-    int svgH = 160;
+    bool hasVisceralFat = orderedReports.Any(r => r.VisceralFat != null);
+    bool hasMuscleMass  = orderedReports.Any(r => r.MuscleMass != null);
+
+    // --- % of total bodyweight calculations ---
+    var muscleMassReport = orderedReports
+        .Where(r => r.MuscleMass.HasValue)
+        .OrderByDescending(r => r.Date)
+        .FirstOrDefault();
+
+    decimal? muscleMassPercent = null;
+    if (muscleMassReport != null && muscleMassReport.Weight > 0)
+        muscleMassPercent = (muscleMassReport.MuscleMass!.Value / (decimal)muscleMassReport.Weight) * 100;
+
+    var visceralFatReport = orderedReports
+        .Where(r => r.VisceralFat.HasValue)
+        .OrderByDescending(r => r.Date)
+        .FirstOrDefault();
+
+    decimal? visceralFatPercent = null;
+    if (visceralFatReport != null && visceralFatReport.Weight > 0)
+        visceralFatPercent = (visceralFatReport.VisceralFat!.Value / (decimal)visceralFatReport.Weight) * 100;
+
+    // --- SVG Chart ---
+    var allPoints = new List<(string label, double weight, decimal? vf)>();
+    allPoints.Add(("Start", Model.StartingWeight, (decimal?)null));
+    foreach (var r in orderedReports)
+        allPoints.Add(($"Wk {r.WeekNumber}", r.Weight, r.VisceralFat));
+
+    int svgW = 650;
+    int svgH = 155;
     int padL = 45;
-    int padR = 15;
+    int padR = hasVisceralFat ? 45 : 15;
     int padT = 18;
     int padB = 30;
 
@@ -35,13 +59,13 @@
         .Select(i => minW + i * (maxW - minW) / gridLines)
         .ToList();
 
-    // Area path
+    // Weight area path
     var areaPath = $"M {XPos(0).ToString("0.0", CultureInfo.InvariantCulture)},{(padT + chartH).ToString("0.0", CultureInfo.InvariantCulture)} ";
     for (int i = 0; i < allPoints.Count; i++)
         areaPath += $"L {XPos(i).ToString("0.0", CultureInfo.InvariantCulture)},{YPos(allPoints[i].weight).ToString("0.0", CultureInfo.InvariantCulture)} ";
     areaPath += $"L {XPos(allPoints.Count - 1).ToString("0.0", CultureInfo.InvariantCulture)},{(padT + chartH).ToString("0.0", CultureInfo.InvariantCulture)} Z";
 
-    // Line path
+    // Weight line path
     var linePath = "M ";
     for (int i = 0; i < allPoints.Count; i++)
     {
@@ -49,10 +73,45 @@
         linePath += $"{XPos(i).ToString("0.0", CultureInfo.InvariantCulture)},{YPos(allPoints[i].weight).ToString("0.0", CultureInfo.InvariantCulture)} ";
     }
 
-    // Build SVG
-    var svg = new System.Text.StringBuilder();
-    svg.Append($"<svg width=\"100%\" viewBox=\"0 0 {svgW} {svgH}\" xmlns=\"http://www.w3.org/2000/svg\" preserveAspectRatio=\"xMidYMid meet\">");
+    // Visceral Fat secondary axis
+    decimal minVF = 0, maxVF = 0;
+    List<decimal> vfTicks = new();
+    string vfLinePath = "";
 
+    if (hasVisceralFat)
+    {
+        var vfValues = allPoints.Where(p => p.vf.HasValue).Select(p => p.vf!.Value).ToList();
+        minVF = vfValues.Min() * 0.95m;
+        maxVF = vfValues.Max() * 1.05m;
+        if (minVF == maxVF) { minVF -= 1; maxVF += 1; }
+
+        vfTicks = Enumerable.Range(0, gridLines + 1)
+            .Select(i => minVF + i * (maxVF - minVF) / gridLines)
+            .ToList();
+
+        double YPosVF(decimal v) =>
+            padT + chartH - (double)((v - minVF) / (maxVF - minVF)) * chartH;
+
+        bool penDown = false;
+        for (int i = 0; i < allPoints.Count; i++)
+        {
+            if (!allPoints[i].vf.HasValue) { penDown = false; continue; }
+            double x = XPos(i);
+            double y = YPosVF(allPoints[i].vf!.Value);
+            vfLinePath += (penDown ? "L " : "M ")
+                + $"{x.ToString("0.0", CultureInfo.InvariantCulture)},{y.ToString("0.0", CultureInfo.InvariantCulture)} ";
+            penDown = true;
+        }
+    }
+
+    double YPosVFLocal(decimal v) =>
+        padT + chartH - (double)((v - minVF) / (maxVF - minVF)) * chartH;
+
+    // Build SVG — fixed width/height, NO viewBox
+    var svg = new System.Text.StringBuilder();
+    svg.Append($"<svg width=\"{svgW}\" height=\"{svgH}\" xmlns=\"http://www.w3.org/2000/svg\">");
+
+    // Grid lines + left axis labels
     foreach (var tick in yTicks)
     {
         double y = YPos(tick);
@@ -60,9 +119,21 @@
         svg.Append($"<line x1=\"{padL}\" y1=\"{y.ToString("0.0", CultureInfo.InvariantCulture)}\" x2=\"{(svgW - padR).ToString("0.0", CultureInfo.InvariantCulture)}\" y2=\"{y.ToString("0.0", CultureInfo.InvariantCulture)}\" stroke=\"rgba(255,255,255,0.07)\" stroke-width=\"1\"/>");
     }
 
+    // Right axis labels (VF)
+    if (hasVisceralFat)
+    {
+        foreach (var tick in vfTicks)
+        {
+            double y = YPosVFLocal(tick);
+            svg.Append($"<text x=\"{(svgW - padR + 4).ToString("0", CultureInfo.InvariantCulture)}\" y=\"{y.ToString("0.0", CultureInfo.InvariantCulture)}\" fill=\"#f59f00\" font-size=\"8\" text-anchor=\"start\" dominant-baseline=\"middle\">{tick.ToString("0.0", CultureInfo.InvariantCulture)}</text>");
+        }
+    }
+
+    // Weight area + line
     svg.Append($"<path d=\"{areaPath}\" fill=\"rgba(61,139,253,0.12)\"/>");
     svg.Append($"<path d=\"{linePath}\" fill=\"none\" stroke=\"#3d8bfd\" stroke-width=\"2\" stroke-linejoin=\"round\" stroke-linecap=\"round\"/>");
 
+    // Weight dots + value labels + X axis labels
     for (int i = 0; i < allPoints.Count; i++)
     {
         double x = XPos(i);
@@ -70,6 +141,21 @@
         svg.Append($"<circle cx=\"{x.ToString("0.0", CultureInfo.InvariantCulture)}\" cy=\"{y.ToString("0.0", CultureInfo.InvariantCulture)}\" r=\"3\" fill=\"#3d8bfd\"/>");
         svg.Append($"<text x=\"{x.ToString("0.0", CultureInfo.InvariantCulture)}\" y=\"{(y - 7).ToString("0.0", CultureInfo.InvariantCulture)}\" fill=\"#adb5bd\" font-size=\"7\" text-anchor=\"middle\">{allPoints[i].weight.ToString("0.0", CultureInfo.InvariantCulture)}</text>");
         svg.Append($"<text x=\"{x.ToString("0.0", CultureInfo.InvariantCulture)}\" y=\"{(padT + chartH + 14).ToString("0.0", CultureInfo.InvariantCulture)}\" fill=\"#6c757d\" font-size=\"8\" text-anchor=\"middle\">{allPoints[i].label}</text>");
+    }
+
+    // VF line + dots + value labels
+    if (hasVisceralFat)
+    {
+        svg.Append($"<path d=\"{vfLinePath}\" fill=\"none\" stroke=\"#f59f00\" stroke-width=\"2\" stroke-linejoin=\"round\" stroke-linecap=\"round\"/>");
+
+        for (int i = 0; i < allPoints.Count; i++)
+        {
+            if (!allPoints[i].vf.HasValue) continue;
+            double x = XPos(i);
+            double y = YPosVFLocal(allPoints[i].vf!.Value);
+            svg.Append($"<circle cx=\"{x.ToString("0.0", CultureInfo.InvariantCulture)}\" cy=\"{y.ToString("0.0", CultureInfo.InvariantCulture)}\" r=\"3\" fill=\"#f59f00\"/>");
+            svg.Append($"<text x=\"{x.ToString("0.0", CultureInfo.InvariantCulture)}\" y=\"{(y + 11).ToString("0.0", CultureInfo.InvariantCulture)}\" fill=\"#f5b94e\" font-size=\"7\" text-anchor=\"middle\">{allPoints[i].vf.Value.ToString("0.0", CultureInfo.InvariantCulture)}</text>");
+        }
     }
 
     svg.Append("</svg>");
@@ -82,7 +168,6 @@
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
-        /* Centers preview in browser, has no effect on PDF */
         html {
             background: #0d0d1a;
             display: flex;
@@ -111,9 +196,23 @@
         .header-left  { display: table-cell; vertical-align: bottom; }
         .header-right { display: table-cell; vertical-align: bottom; text-align: right; }
         .header h1 { font-size: 24px; font-weight: 700; color: #ffffff; margin-bottom: 2px; }
-        .header .subtitle { color: #6c757d; font-size: 10px; }
+        .header .subtitle { color: #6c757d; font-size: 10px; margin-bottom: 4px; }
         .header .meta { color: #6c757d; font-size: 9px; line-height: 1.8; }
         .header .meta span { color: #adb5bd; }
+
+        /* % badges */
+        .pct-badge {
+            display: inline-block;
+            background: #16213e;
+            border: 1px solid #2a2a4a;
+            border-radius: 4px;
+            padding: 2px 8px;
+            font-size: 9px;
+            color: #e0e0e0;
+            margin-right: 6px;
+            margin-top: 4px;
+        }
+        .pct-date { color: #6c757d; }
 
         /* Section title */
         .section-title {
@@ -175,6 +274,19 @@
             padding: 12px 14px;
             margin-bottom: 14px;
         }
+        .chart-legend {
+            font-size: 8px;
+            color: #adb5bd;
+            margin-bottom: 6px;
+        }
+        .legend-swatch {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 2px;
+            margin-right: 4px;
+            vertical-align: middle;
+        }
 
         /* History table */
         .history-card {
@@ -184,10 +296,10 @@
             overflow: hidden;
             margin-bottom: 14px;
         }
-        .history-card table { width: 100%; border-collapse: collapse; font-size: 10px; }
+        .history-card table { width: 100%; border-collapse: collapse; font-size: 9px; }
         .history-card thead tr { background: #0f1628; }
         .history-card thead th {
-            padding: 7px 10px;
+            padding: 7px 8px;
             text-align: left;
             font-size: 8px;
             text-transform: uppercase;
@@ -196,7 +308,7 @@
             font-weight: 700;
         }
         .history-card tbody tr { border-top: 1px solid #2a2a4a; }
-        .history-card tbody td { padding: 5px 10px; color: #e0e0e0; }
+        .history-card tbody td { padding: 5px 8px; color: #e0e0e0; }
 
         .success { color: #28a745; }
         .danger  { color: #dc3545; }
@@ -209,7 +321,6 @@
             padding-top: 10px;
             font-size: 8px;
             color: #4a4a6a;
-            margin-top: 10px;
         }
         .footer-left  { display: table-cell; }
         .footer-right { display: table-cell; text-align: right; }
@@ -222,6 +333,26 @@
         <div class="header-left">
             <h1>@Model.Firstname @Model.Surname</h1>
             <div class="subtitle">Patient Treatment Report</div>
+
+            @if (muscleMassPercent.HasValue || visceralFatPercent.HasValue)
+            {
+                <div>
+                    @if (muscleMassPercent.HasValue)
+                    {
+                        <span class="pct-badge">
+                            Muscle Mass: @muscleMassPercent.Value.ToString("0.0", CultureInfo.InvariantCulture)%
+                            <span class="pct-date">(as of @muscleMassReport!.Date.ToShortDateString())</span>
+                        </span>
+                    }
+                    @if (visceralFatPercent.HasValue)
+                    {
+                        <span class="pct-badge">
+                            Visceral Fat: @visceralFatPercent.Value.ToString("0.0", CultureInfo.InvariantCulture)%
+                            <span class="pct-date">(as of @visceralFatReport!.Date.ToShortDateString())</span>
+                        </span>
+                    }
+                </div>
+            }
         </div>
         <div class="header-right">
             <div class="meta">
@@ -285,10 +416,19 @@
         </div>
     </div>
 
-    <!-- Weight Chart -->
+    <!-- Weight / Visceral Fat Chart -->
     <div class="section-title">Weight Progression</div>
     <div class="chart-card">
-        @Html.Raw(svg.ToString())
+        @if (hasVisceralFat)
+        {
+            <div class="chart-legend">
+                <span class="legend-swatch" style="background:#3d8bfd;"></span>Weight (kg)
+                <span class="legend-swatch" style="background:#f59f00; margin-left:14px;"></span>Visceral Fat (kg)
+            </div>
+        }
+        <div style="width:650px;">
+            @Html.Raw(svg.ToString())
+        </div>
     </div>
 
     <!-- Treatment History -->
@@ -301,10 +441,18 @@
                     <th>Date</th>
                     <th>Weight (kg)</th>
                     <th>Change (kg)</th>
+                    @if (hasVisceralFat)
+                    {
+                        <th>Visceral Fat (kg)</th>
+                    }
+                    @if (hasMuscleMass)
+                    {
+                        <th>Muscle Mass (kg)</th>
+                    }
                 </tr>
             </thead>
             <tbody>
-                @foreach (var r in Model.Reports.OrderBy(r => r.WeekNumber))
+                @foreach (var r in orderedReports)
                 {
                     <tr>
                         <td>Wk @r.WeekNumber</td>
@@ -313,6 +461,14 @@
                         <td class="@(r.WeightChange <= 0 ? "success" : "danger")">
                             @(r.WeightChange > 0 ? "+" : "")@r.WeightChange.ToString("0.00", CultureInfo.InvariantCulture)
                         </td>
+                        @if (hasVisceralFat)
+                        {
+                            <td>@(r.VisceralFat.HasValue ? r.VisceralFat.Value.ToString("0.00", CultureInfo.InvariantCulture) : "—")</td>
+                        }
+                        @if (hasMuscleMass)
+                        {
+                            <td>@(r.MuscleMass.HasValue ? r.MuscleMass.Value.ToString("0.00", CultureInfo.InvariantCulture) : "—")</td>
+                        }
                     </tr>
                 }
             </tbody>

@@ -4,121 +4,143 @@
     ViewData["Title"] = "New Medical Report";
 }
 
-<div class="container mt-5">
-    <div class="row justify-content-center">
-        <div class="col-md-9">
-            <div class="card shadow-sm border-0">
-                <div class="card-body p-5">
-                    <div class="mb-4">
-                        <h2 class="fw-bold text-success">New Progress Report</h2>
-                        <p class="text-muted">Record weekly progress, dosage, and observe side effects.</p>
-                    </div>
-
-                    <form asp-action="Create" method="post">
-                        @Html.AntiForgeryToken()
-                        <div asp-validation-summary="ModelOnly" class="text-danger"></div>
-
-                        @* Pass the preselected patient id through the form so POST can redirect back *@
-                        @if (ViewBag.PreselectedPatientId != null)
-                        {
-                            <input type="hidden" name="returnPatientId" value="@ViewBag.PreselectedPatientId" />
-                        }
-
-                        <div class="row mb-4">
-                            <div class="col-md-12">
-                                <label class="form-label fw-bold small text-uppercase">Select Patient</label>
-                                <select id="patientSelector" asp-for="PatientId" class="form-select" asp-items="ViewBag.PatientId">
-                                    <option value="">-- Start typing patient name --</option>
-                                </select>
-                            </div>
-                        </div>
-
-                        <div class="col-md-4 mb-3">
-                            <label asp-for="Date" class="form-label fw-bold small text-uppercase">Report Date</label>
-                            <input asp-for="Date" id="reportDate" class="form-control" type="date" />
-                            <span asp-validation-for="Date" class="text-danger"></span>
-                        </div>
-
-                        <div class="row mb-3">
-                            <div class="col-md-4">
-                                <label asp-for="ReportNumber" class="form-label fw-bold small text-uppercase"></label>
-                                <input asp-for="ReportNumber" class="form-control" readonly />
-                                <span asp-validation-for="ReportNumber" class="text-danger"></span>
-                            </div>
-                            <div class="col-md-4">
-                                <label asp-for="WeekNumber" class="form-label fw-bold small text-uppercase"></label>
-                                <input asp-for="WeekNumber" class="form-control" readonly />
-                                <span asp-validation-for="WeekNumber" class="text-danger"></span>
-                            </div>
-                            <div class="col-md-4">
-                                <label asp-for="Dosage" class="form-label fw-bold small text-uppercase">Dosage (mg)</label>
-                                <input asp-for="Dosage" id="dosageInput" class="form-control"
-                                       value="@(ViewBag.LastDosage != null ? ((decimal)ViewBag.LastDosage).ToString(System.Globalization.CultureInfo.InvariantCulture) : "")" />
-                                <span asp-validation-for="Dosage" class="text-danger"></span>
-                            </div>
-                        </div>
-
-                        <div class="row mb-4">
-                            <div class="col-md-4">
-                                <label asp-for="Weight" class="form-label fw-bold small text-uppercase">Current Weight (kg)</label>
-                                <input asp-for="Weight" class="form-control" />
-                                <span asp-validation-for="Weight" class="text-danger"></span>
-                            </div>
-                            <div class="col-md-4">
-                                <label class="form-label fw-bold small text-uppercase">Weight Change</label>
-                                <input type="text" id="weightChange" class="form-control" readonly />
-                                <input type="hidden" name="WeightChange" value="0" />
-                            </div>
-                            <div class="col-md-8">
-                                <label asp-for="Notes" class="form-label fw-bold small text-uppercase"></label>
-                                <textarea asp-for="Notes" class="form-control" rows="1" placeholder="Observation notes..."></textarea>
-                                <span asp-validation-for="Notes" class="text-danger"></span>
-                            </div>
-                        </div>
-
-                        <div class="mb-4">
-                            <label class="form-label fw-bold small text-uppercase mb-2 text-muted">Observed Side Effects</label>
-                            <div class="p-3 rounded border bg-dark text-light"
-                                 style="max-height: 200px; overflow-y: auto; border-color: var(--border) !important;">
-                                <div class="row">
-                                    @foreach (var sideEffect in (List<DEGMA.Models.SideEffect>)ViewBag.AllSideEffects)
-                                    {
-                                        <div class="col-md-4 mb-2">
-                                            <div class="form-check">
-                                                <input class="form-check-input" type="checkbox"
-                                                       name="selectedSideEffects"
-                                                       value="@sideEffect.SideEffectId"
-                                                       id="se_@sideEffect.SideEffectId" />
-                                                <label class="form-check-label" for="se_@sideEffect.SideEffectId">
-                                                    @sideEffect.Name
-                                                </label>
-                                            </div>
-                                        </div>
-                                    }
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="d-flex justify-content-between align-items-center mt-5 pt-3 border-top">
-                            @if (ViewBag.PreselectedPatientId != null)
-                            {
-                                <a asp-controller="Patients" asp-action="Details"
-                                       asp-route-id="@ViewBag.PreselectedPatientId"
-                                       class="text-decoration-none text-muted">
-                                    <i class="bi bi-arrow-left"></i> Back to Patient
-                                </a>
-                            }
-                            else
-                            {
-                                <a asp-action="Index" class="text-decoration-none text-muted">
-                                    <i class="bi bi-arrow-left"></i> Back to Reports
-                                </a>
-                            }
-                            <button type="submit" class="btn btn-success px-5 py-2 fw-bold">Submit Report</button>
-                        </div>
-                    </form>
-                </div>
+<div class="container-fluid px-5 mt-4" style="max-width: 1800px;">
+    <div class="card shadow-sm border-0">
+        <div class="card-body p-4">
+            <div class="mb-3">
+                <h2 class="fw-bold text-success mb-0">New Progress Report</h2>
+                <p class="text-muted small">Record weekly progress, dosage, and observe side effects.</p>
             </div>
+
+            <form asp-action="Create" method="post">
+                @Html.AntiForgeryToken()
+                <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+
+                @if (ViewBag.PreselectedPatientId != null)
+                {
+                    <input type="hidden" name="returnPatientId" value="@ViewBag.PreselectedPatientId" />
+                }
+
+                @* Row 1: Patient + Date *@
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold small text-uppercase">Select Patient</label>
+                        <select id="patientSelector" asp-for="PatientId"
+                                class="form-select" asp-items="ViewBag.PatientId">
+                            <option value="">-- Start typing patient name --</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label asp-for="ReportNumber" class="form-label fw-bold small text-uppercase"></label>
+                        <input asp-for="ReportNumber" class="form-control" readonly />
+                    </div>
+                    <div class="col-md-2">
+                        <label asp-for="WeekNumber" class="form-label fw-bold small text-uppercase"></label>
+                        <input asp-for="WeekNumber" class="form-control" readonly />
+                    </div>
+                </div>
+
+                @* Row 2: Report#, Week#, Dosage, Batch Number *@
+                <div class="row mb-3">
+                    <div class="col-md-4">
+                        <label asp-for="Date" class="form-label fw-bold small text-uppercase">Report Date</label>
+                        <input asp-for="Date" id="reportDate" class="form-control" type="date" />
+                        <span asp-validation-for="Date" class="text-danger"></span>
+                    </div>
+                    
+                    <div class="col-md-3">
+                        <label asp-for="Dosage" class="form-label fw-bold small text-uppercase">Dosage (mg)</label>
+                        <input asp-for="Dosage" id="dosageInput" class="form-control"
+                               value="@(ViewBag.LastDosage != null ? ((decimal)ViewBag.LastDosage).ToString(System.Globalization.CultureInfo.InvariantCulture) : "")" />
+                        <span asp-validation-for="Dosage" class="text-danger"></span>
+                    </div>
+                    <div class="col-md-3">
+                        <label asp-for="BatchNumber" class="form-label fw-bold small text-uppercase">Batch Number</label>
+                        <input asp-for="BatchNumber" class="form-control"
+                               value="@(ViewBag.CurrentBatchNumber ?? "")" />
+                        <span class="text-muted small mt-1 d-block" style="font-size:10px;">
+                            Pre-filled from clinic setting — edit if needed.
+                        </span>
+                    </div>
+                </div>
+
+                @* Row 3: Weight, Weight Change, Notes *@
+                <div class="row mb-3">
+                    <div class="col-md-2">
+                        <label asp-for="Weight" class="form-label fw-bold small text-uppercase">Weight (kg)</label>
+                        <input asp-for="Weight" class="form-control" />
+                        <span asp-validation-for="Weight" class="text-danger"></span>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label fw-bold small text-uppercase">Weight Change</label>
+                        <input type="text" id="weightChange" class="form-control" readonly />
+                        <input type="hidden" name="WeightChange" value="0" />
+                    </div>
+                    <div class="col-md-6">
+                        <label asp-for="Notes" class="form-label fw-bold small text-uppercase"></label>
+                        <input asp-for="Notes" class="form-control" placeholder="Observation notes..." />
+                        <span asp-validation-for="Notes" class="text-danger"></span>
+                    </div>
+                </div>
+
+                @* Row 4: Visceral Fat + Muscle Mass *@
+                <div class="row mb-3">
+                    <div class="col-md-3">
+                        <label asp-for="VisceralFat" class="form-label fw-bold small text-uppercase">Visceral Fat (kg)</label>
+                        <input asp-for="VisceralFat" id="visceralFatInput"
+                               class="form-control" placeholder="Optional" />
+                        <div id="visceralFatWarning" class="text-muted small mt-1" style="display:none;"></div>
+                    </div>
+                    <div class="col-md-3">
+                        <label asp-for="MuscleMass" class="form-label fw-bold small text-uppercase">Muscle Mass (kg)</label>
+                        <input asp-for="MuscleMass" id="muscleMassInput"
+                               class="form-control" placeholder="Optional" />
+                        <div id="muscleMassWarning" class="text-muted small mt-1" style="display:none;"></div>
+                    </div>
+                </div>
+
+                @* Row 5: Side Effects *@
+                <div class="mb-3">
+                    <label class="form-label fw-bold small text-uppercase mb-2 text-muted">Observed Side Effects</label>
+                    <div class="p-3 rounded border bg-dark text-light"
+                         style="max-height: 150px; overflow-y: auto; border-color: var(--border) !important;">
+                        <div class="row row-cols-4 g-1">
+                            @foreach (var sideEffect in (List<DEGMA.Models.SideEffect>)ViewBag.AllSideEffects)
+                            {
+                                <div class="col">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox"
+                                               name="selectedSideEffects"
+                                               value="@sideEffect.SideEffectId"
+                                               id="se_@sideEffect.SideEffectId" />
+                                        <label class="form-check-label small" for="se_@sideEffect.SideEffectId">
+                                            @sideEffect.Name
+                                        </label>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </div>
+
+                <div class="d-flex justify-content-between align-items-center pt-3 border-top">
+                    @if (ViewBag.PreselectedPatientId != null)
+                    {
+                        <a asp-controller="Patients" asp-action="Details"
+                           asp-route-id="@ViewBag.PreselectedPatientId"
+                           class="text-decoration-none text-muted">
+                            <i class="bi bi-arrow-left"></i> Back to Patient
+                        </a>
+                    }
+                    else
+                    {
+                        <a asp-action="Index" class="text-decoration-none text-muted">
+                            <i class="bi bi-arrow-left"></i> Back to Reports
+                        </a>
+                    }
+                    <button type="submit" class="btn btn-success px-5 fw-bold">Submit Report</button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
@@ -132,6 +154,8 @@
         let patientStartDate = "";
         let startingWeight = 0;
         let lastWeight = 0;
+        let lastVisceralFat = null;
+        let lastMuscleMass = null;
 
         function calculateWeek() {
             if (!patientStartDate || !$('#reportDate').val()) return;
@@ -161,7 +185,31 @@
             $('#weightChange').val(change);
         }
 
-        $(document).ready(function () {
+        function normalizeVal(v) {
+            if (v === null || v === undefined) return '';
+            const s = String(v).trim();
+            if (s === '') return '';
+            const num = parseFloat(s);
+            if (isNaN(num)) return '';
+            return num.toFixed(2);
+        }
+
+        function checkUnchanged(inputId, warningId, baseline) {
+            const current = normalizeVal($(`#${inputId}`).val());
+            const base = normalizeVal(baseline);
+
+            if (current === base) {
+                $(`#${inputId}`).css('border-color', '#6c757d');
+                $(`#${warningId}`)
+                    .text(base === '' ? 'Not measured for this patient yet' : 'No change from previous reading')
+                    .show();
+            } else {
+                $(`#${inputId}`).css('border-color', '');
+                $(`#${warningId}`).hide();
+            }
+        }
+
+        $(document).ready(function() {
             $.validator.setDefaults({ ignore: [] });
 
             $('#patientSelector').select2({
@@ -169,7 +217,7 @@
                 width: '100%'
             });
 
-            $('#patientSelector').on('change', function () {
+            $('#patientSelector').on('change', function() {
                 const patientId = $(this).val();
                 if (!patientId) return;
 
@@ -181,10 +229,22 @@
                         startingWeight = data.startingWeight;
                         lastWeight = data.lastWeight;
 
-                        // Pre-fill dosage with last report's dosage if available
-                        if (data.lastDosage && $('#dosageInput').val() === '') {
-                            $('#dosageInput').val(data.lastDosage);
+                        if (data.lastDosage !== null && $('#dosageInput').val() === '') {
+                            $('#dosageInput').val(Number(data.lastDosage).toFixed(2));
                         }
+
+                        lastVisceralFat = data.lastVisceralFat;
+                        lastMuscleMass = data.lastMuscleMass;
+
+                        $('#visceralFatInput').val(
+                            lastVisceralFat !== null ? Number(lastVisceralFat).toFixed(2) : ''
+                        );
+                        $('#muscleMassInput').val(
+                            lastMuscleMass !== null ? Number(lastMuscleMass).toFixed(2) : ''
+                        );
+
+                        checkUnchanged('visceralFatInput', 'visceralFatWarning', lastVisceralFat);
+                        checkUnchanged('muscleMassInput', 'muscleMassWarning', lastMuscleMass);
 
                         calculateWeek();
                         calculateWeightChange();
@@ -194,7 +254,11 @@
             $('#reportDate').on('change', calculateWeek);
             $('[id="Weight"]').on('input', calculateWeightChange);
 
-            // Auto-trigger if patient is pre-selected from patient profile
+            $('#visceralFatInput').on('input', () =>
+                checkUnchanged('visceralFatInput', 'visceralFatWarning', lastVisceralFat));
+            $('#muscleMassInput').on('input', () =>
+                checkUnchanged('muscleMassInput', 'muscleMassWarning', lastMuscleMass));
+
             const preselected = '@(ViewBag.PreselectedPatientId?.ToString() ?? "")';
             if (preselected) {
                 $('#patientSelector').val(preselected).trigger('change');

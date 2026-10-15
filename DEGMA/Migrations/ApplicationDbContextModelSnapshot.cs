@@ -15,7 +15,7 @@ namespace DEGMA.Migrations
         protected override void BuildModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
-            modelBuilder.HasAnnotation("ProductVersion", "10.0.5");
+            modelBuilder.HasAnnotation("ProductVersion", "10.0.10");
 
             modelBuilder.Entity("DEGMA.Models.Patient", b =>
                 {
@@ -55,10 +55,16 @@ namespace DEGMA.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
 
+                    b.Property<string>("BatchNumber")
+                        .HasColumnType("TEXT");
+
                     b.Property<DateOnly>("Date")
                         .HasColumnType("TEXT");
 
                     b.Property<decimal>("Dosage")
+                        .HasColumnType("TEXT");
+
+                    b.Property<decimal?>("MuscleMass")
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Notes")
@@ -69,6 +75,9 @@ namespace DEGMA.Migrations
 
                     b.Property<int>("ReportNumber")
                         .HasColumnType("INTEGER");
+
+                    b.Property<decimal?>("VisceralFat")
+                        .HasColumnType("TEXT");
 
                     b.Property<int>("WeekNumber")
                         .HasColumnType("INTEGER");

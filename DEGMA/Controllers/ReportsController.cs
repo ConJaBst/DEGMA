@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 
 namespace DEGMA.Controllers
 {
@@ -11,11 +12,14 @@ namespace DEGMA.Controllers
     public class ReportsController : Controller
     {
         private readonly ApplicationDbContext _context;
+        private readonly ClinicSettings _clinicSettings;
 
-        public ReportsController(ApplicationDbContext context)
+        public ReportsController(ApplicationDbContext context, IOptions<ClinicSettings> clinicSettings)
         {
             _context = context;
+            _clinicSettings = clinicSettings.Value;
         }
+        
 
         // GET: Reports
         public async Task<IActionResult> Index()
@@ -55,8 +59,8 @@ namespace DEGMA.Controllers
 
             ViewBag.AllSideEffects = _context.SideEffects.ToList();
             ViewBag.PreselectedPatientId = patientId;
+            ViewBag.CurrentBatchNumber = _clinicSettings.CurrentBatchNumber;
 
-            // Pre-fill last dosage if coming from a patient profile
             if (patientId.HasValue)
             {
                 var lastReport = await _context.Reports
@@ -75,7 +79,7 @@ namespace DEGMA.Controllers
         [ValidateAntiForgeryToken]
         [Authorize(Roles = "Doctor")]
         public async Task<IActionResult> Create(
-            [Bind("ReportId,ReportNumber,WeekNumber,Weight,Dosage,Notes,PatientId,Date")]
+            [Bind("ReportId,ReportNumber,WeekNumber,Weight,Dosage,Notes,PatientId,Date,VisceralFat,MuscleMass,BatchNumber")]
             Report report, int[] selectedSideEffects, int? returnPatientId)
         {
             ModelState.Remove("WeightChange");
@@ -118,7 +122,6 @@ namespace DEGMA.Controllers
                 _context.Add(report);
                 await _context.SaveChangesAsync();
 
-                // Return to whichever patient we came from
                 var targetPatientId = returnPatientId ?? report.PatientId;
                 return RedirectToAction("Details", "Patients", new { id = targetPatientId });
             }
@@ -165,6 +168,23 @@ namespace DEGMA.Controllers
             if (report == null) return NotFound();
 
             ViewBag.AllSideEffects = await _context.SideEffects.ToListAsync();
+            ViewBag.CurrentBatchNumber = _clinicSettings.CurrentBatchNumber;
+
+            var previousReport = await _context.Reports
+                .Where(r => r.PatientId == report.PatientId
+                         && r.Date < report.Date
+                         && r.ReportId != report.ReportId)
+                .OrderByDescending(r => r.Date)
+                .FirstOrDefaultAsync();
+
+            ViewBag.PreviousVisceralFat = previousReport?.VisceralFat;
+            ViewBag.PreviousMuscleMass = previousReport?.MuscleMass;
+
+            if (report.VisceralFat == null)
+                report.VisceralFat = previousReport?.VisceralFat;
+            if (report.MuscleMass == null)
+                report.MuscleMass = previousReport?.MuscleMass;
+
             return View(report);
         }
 
@@ -173,7 +193,7 @@ namespace DEGMA.Controllers
         [ValidateAntiForgeryToken]
         [Authorize(Roles = "Doctor")]
         public async Task<IActionResult> Edit(int id,
-            [Bind("ReportId,ReportNumber,WeekNumber,Weight,Dosage,WeightChange,Notes,PatientId,Date")]
+            [Bind("ReportId,ReportNumber,WeekNumber,Weight,Dosage,WeightChange,Notes,PatientId,Date,VisceralFat,MuscleMass,BatchNumber")]
             Report report, int[] selectedSideEffects)
         {
             if (id != report.ReportId) return NotFound();
@@ -212,6 +232,9 @@ namespace DEGMA.Controllers
                     existing.Weight = report.Weight;
                     existing.Dosage = report.Dosage;
                     existing.Notes = report.Notes;
+                    existing.VisceralFat = report.VisceralFat;
+                    existing.MuscleMass = report.MuscleMass;
+                    existing.BatchNumber = report.BatchNumber;
 
                     existing.SideEffects.Clear();
                     if (selectedSideEffects != null)
@@ -295,7 +318,6 @@ namespace DEGMA.Controllers
                 .FirstOrDefault();
 
             var lastWeight = lastReport?.Weight ?? patient.StartingWeight;
-            var lastDosage = lastReport?.Dosage;
 
             return Json(new
             {
@@ -303,7 +325,9 @@ namespace DEGMA.Controllers
                 startDate = patient.TreatmentStartDate.ToString("yyyy-MM-dd"),
                 startingWeight = patient.StartingWeight,
                 lastWeight = lastWeight,
-                lastDosage = lastDosage
+                lastDosage = lastReport?.Dosage,
+                lastVisceralFat = lastReport?.VisceralFat,
+                lastMuscleMass = lastReport?.MuscleMass
             });
         }
 

@@ -1,18 +1,23 @@
+using DEGMA.Binders;
 using DEGMA.Data;
+using DEGMA.Models;
+using DEGMA.Services;
 using DinkToPdf;
 using DinkToPdf.Contracts;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Sqlite;
-using DEGMA.Binders;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// ================================================================
+// DATABASE
+// ================================================================
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlite("Data Source=degma.db"));
-builder.Services.AddSingleton(typeof(IConverter), 
-    new SynchronizedConverter(new PdfTools()));
 
+// ================================================================
+// IDENTITY & AUTHENTICATION
+// ================================================================
 builder.Services.AddIdentity<IdentityUser, IdentityRole>(options =>
 {
     options.Password.RequireDigit = true;
@@ -30,108 +35,146 @@ builder.Services.ConfigureApplicationCookie(options =>
     options.AccessDeniedPath = "/Auth/AccessDenied";
 });
 
+// ================================================================
+// SETTINGS (appsettings.json sections)
+// ================================================================
+builder.Services.Configure<ClinicSettings>(
+    builder.Configuration.GetSection("ClinicSettings"));
+
+builder.Services.Configure<EmailSettings>(
+    builder.Configuration.GetSection("EmailSettings"));
+
+// ================================================================
+// APPLICATION SERVICES
+// ================================================================
+
+// PDF generation
+builder.Services.AddSingleton(typeof(IConverter),
+    new SynchronizedConverter(new PdfTools()));
+
+// Email
+builder.Services.AddTransient<EmailService>();
+
+// Session (used by CSV import)
 builder.Services.AddDistributedMemoryCache();
-builder.Services.AddSession(options => {
+builder.Services.AddSession(options =>
+{
     options.IdleTimeout = TimeSpan.FromMinutes(30);
     options.Cookie.HttpOnly = true;
     options.Cookie.IsEssential = true;
 });
 
-builder.Services.Configure<Microsoft.AspNetCore.Http.Features.FormOptions>(options =>
-{
-    options.ValueCountLimit = 10000; // Increase limit to handle large CSVs
-    options.ValueLengthLimit = int.MaxValue;
-    options.MultipartBodyLengthLimit = int.MaxValue;
-}); 
-
-// Add services to the container.
-builder.Services.AddControllersWithViews();
-
-
+// ================================================================
+// MVC + MODEL BINDERS
+// ================================================================
 builder.Services.AddControllersWithViews(options =>
 {
+    // Invariant culture binders so decimal/double fields
+    // parse correctly regardless of system locale (e.g. South Africa)
     options.ModelBinderProviders.Insert(0, new InvariantDecimalModelBinderProvider());
+    options.ModelBinderProviders.Insert(1, new InvariantDoubleModelBinderProvider());
 });
+
+// Allow large CSV uploads through the form pipeline
+builder.Services.Configure<Microsoft.AspNetCore.Http.Features.FormOptions>(options =>
+{
+    options.ValueCountLimit = 10000;
+    options.ValueLengthLimit = int.MaxValue;
+    options.MultipartBodyLengthLimit = int.MaxValue;
+});
+
+// ================================================================
+// BUILD
+// ================================================================
 var app = builder.Build();
 
-// Seed roles and default users
+// ================================================================
+// DATABASE STARTUP — migrate and seed
+// ================================================================
 using (var scope = app.Services.CreateScope())
 {
-    var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
-    var userManager = scope.ServiceProvider.GetRequiredService<UserManager<IdentityUser>>();
+    var services = scope.ServiceProvider;
 
-    // Create roles
+    // 1. Apply any pending EF migrations (creates tables if missing)
+    try
+    {
+        var context = services.GetRequiredService<ApplicationDbContext>();
+        context.Database.Migrate();
+    }
+    catch (Exception ex)
+    {
+        var logger = services.GetRequiredService<ILogger<Program>>();
+        logger.LogError(ex, "An error occurred applying database migrations.");
+    }
+
+    // 2. Seed roles
+    var roleManager = services.GetRequiredService<RoleManager<IdentityRole>>();
     foreach (var role in new[] { "Doctor", "Receptionist" })
     {
         if (!await roleManager.RoleExistsAsync(role))
             await roleManager.CreateAsync(new IdentityRole(role));
     }
 
-    // Default Doctor account
+    // 3. Seed default user accounts
+    var userManager = services.GetRequiredService<UserManager<IdentityUser>>();
+
     if (await userManager.FindByEmailAsync("doctor@degma.com") == null)
     {
-        var doctor = new IdentityUser { UserName = "doctor@degma.com", Email = "doctor@degma.com" };
+        var doctor = new IdentityUser
+        {
+            UserName = "doctor@degma.com",
+            Email = "doctor@degma.com"
+        };
         await userManager.CreateAsync(doctor, "Doctor123");
         await userManager.AddToRoleAsync(doctor, "Doctor");
     }
 
-    // Default Receptionist account
     if (await userManager.FindByEmailAsync("receptionist@degma.com") == null)
     {
-        var receptionist = new IdentityUser { UserName = "receptionist@degma.com", Email = "receptionist@degma.com" };
+        var receptionist = new IdentityUser
+        {
+            UserName = "receptionist@degma.com",
+            Email = "receptionist@degma.com"
+        };
         await userManager.CreateAsync(receptionist, "Receptionist123");
         await userManager.AddToRoleAsync(receptionist, "Receptionist");
     }
-}
 
-// Make sure this line is present
-app.UseAuthentication();
-app.UseAuthorization();
+    // 4. Backfill batch number on any reports that don't have one
+    //    Safe to leave permanently — only touches null/empty records
+    var db = services.GetRequiredService<ApplicationDbContext>();
+    var reportsWithoutBatch = await db.Reports
+        .Where(r => r.BatchNumber == null || r.BatchNumber == "")
+        .ToListAsync();
 
-// --- AUTO-MIGRATE DATABASE START ---
-using (var scope = app.Services.CreateScope())
-{
-    var services = scope.ServiceProvider;
-    try
+    if (reportsWithoutBatch.Any())
     {
-        var context = services.GetRequiredService<ApplicationDbContext>();
-        // This line physically creates the database and tables if they are missing
-        context.Database.Migrate();
-    }
-    catch (Exception ex)
-    {
-        var logger = services.GetRequiredService<ILogger<Program>>();
-        logger.LogError(ex, "An error occurred creating the DB.");
+        foreach (var report in reportsWithoutBatch)
+            report.BatchNumber = "4YIS2501A";
+
+        await db.SaveChangesAsync();
     }
 }
-// --- AUTO-MIGRATE DATABASE END ---
 
-// Configure the HTTP request pipeline.
+// ================================================================
+// HTTP PIPELINE
+// ================================================================
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Home/Error");
-    // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
     app.UseHsts();
 }
 
 app.UseHttpsRedirection();
-app.UseRouting();
-
-app.UseAuthorization();
-
 app.UseStaticFiles();
-
+app.UseRouting();
+app.UseAuthentication();
+app.UseAuthorization();
 app.UseSession();
 
 app.MapControllerRoute(
     name: "default",
     pattern: "{controller=Home}/{action=Index}/{id?}")
     .WithStaticAssets();
-
-using (var scope = app.Services.CreateScope())
-{
-    var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-    db.Database.Migrate(); // creates tables if they don't exist
-}
 
 app.Run();

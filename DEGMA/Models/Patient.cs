@@ -22,9 +22,6 @@ namespace DEGMA.Models
         public int ReportNumber { get; set; }
         public int WeekNumber { get; set; }
         public double Weight { get; set; }
-        
-        [Required]
-        [Range(0, 10)]
         public decimal Dosage { get; set; }
         public double WeightChange { get; set; }
         public string? Notes { get; set; }
@@ -33,6 +30,10 @@ namespace DEGMA.Models
         public List<SideEffect> SideEffects { get; set; } = new List<SideEffect>();
         public int PatientId { get; set; }
         public Patient? Patient { get; set; }
+        public decimal? VisceralFat { get; set; }
+        public decimal? MuscleMass { get; set; }
+
+        public string? BatchNumber { get; set; }
     }
     [Index(nameof(Name), IsUnique = true)]
     public class SideEffect

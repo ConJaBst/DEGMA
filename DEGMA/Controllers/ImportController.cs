@@ -63,7 +63,10 @@ namespace DEGMA.Controllers
                     Dosage = parts[12].Trim(),
                     WeightChange = parts[13].Trim(),
                     Notes = parts[14].Trim(),
-                    SideEffects = parts.Count > 15 ? parts[15].Trim() : ""
+                    SideEffects = parts.Count > 15 ? parts[15].Trim() : "",
+                    VisceralFat = parts.Count > 16 ? parts[16].Trim() : "",
+                    MuscleMass = parts.Count > 17 ? parts[17].Trim() : "",
+                    BatchNumber = parts.Count > 18 ? parts[18].Trim() : ""
                 };
 
                 ValidateRow(row);
@@ -302,6 +305,17 @@ namespace DEGMA.Controllers
                     int reportNum = await _context.Reports
                         .CountAsync(r => r.PatientId == patient.PatientId) + 1;
 
+                    // Parse optional fields
+                    decimal? visceralFat = null;
+                    if (decimal.TryParse(row.VisceralFat, NumberStyles.Any,
+                        CultureInfo.InvariantCulture, out var vf))
+                        visceralFat = vf;
+
+                    decimal? muscleMass = null;
+                    if (decimal.TryParse(row.MuscleMass, NumberStyles.Any,
+                        CultureInfo.InvariantCulture, out var mm))
+                        muscleMass = mm;
+
                     var report = new Report
                     {
                         PatientId = patient.PatientId,
@@ -311,7 +325,10 @@ namespace DEGMA.Controllers
                         Weight = weight,
                         Dosage = (decimal)dosage,
                         WeightChange = weightChange,
-                        Notes = row.Notes ?? string.Empty
+                        Notes = row.Notes ?? string.Empty,
+                        VisceralFat = visceralFat,
+                        MuscleMass = muscleMass,
+                        BatchNumber = string.IsNullOrWhiteSpace(row.BatchNumber) ? null : row.BatchNumber
                     };
 
                     // Link side effects

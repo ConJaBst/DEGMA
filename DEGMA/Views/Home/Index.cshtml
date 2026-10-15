@@ -33,6 +33,23 @@
                 <i class="bi bi-journal-text me-2"></i> All Reports
             </a>
         </div>
+        @* <div class="col-md-3">
+            <i class="bi bi-journal-text me-2"></i> Batch Number: 
+            <form asp-controller="Home" asp-action="UpdateBatchNumber" method="post"
+                  class="d-flex align-items-center gap-3">
+                @Html.AntiForgeryToken()
+                <input type="text" name="batchNumber"
+                       value="@ViewBag.CurrentBatchNumber"
+                       class="form-control form-control-sm"
+                       style="max-width:220px;"
+                       placeholder="4YIS2501A" />
+                <button type="submit" class="btn btn-outline-secondary btn-sm">
+                    <i class="bi bi-save me-1"></i> Update
+                </button>
+            </form>
+
+        </div> *@
+
     </div>
 
     <!-- Stats Grid -->
@@ -200,6 +217,12 @@
                                     @TempData["ImportSuccess"]
                                 </div>
                             }
+                            @if (TempData["BatchSuccess"] != null)
+                            {
+                                <div class="alert alert-success mt-2 mb-0 py-2 small">
+                                    <i class="bi bi-check-circle me-1"></i> @TempData["BatchSuccess"]
+                                </div>
+                            }
                             @if (TempData["ImportError"] != null)
                             {
                                 <div class="alert alert-danger mt-3 mb-0 py-2 small">
@@ -229,6 +252,9 @@
             </div>
         </div>
     </div>
+    
+    
+   
 
     <!-- Recent Activity Table -->
     <div class="row mt-2">

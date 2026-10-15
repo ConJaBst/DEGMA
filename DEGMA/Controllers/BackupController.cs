@@ -68,31 +68,33 @@ namespace DEGMA.Controllers
 
             var sb = new StringBuilder();
             sb.AppendLine("PatientId,Firstname,Surname,DateOfBirth,Email,StartingWeight," +
-                          "TreatmentStartDate,ReportId,ReportNumber,WeekNumber,Date," +
-                          "Weight,Dosage,WeightChange,Notes,SideEffects");
+              "TreatmentStartDate,ReportId,ReportNumber,WeekNumber,Date," +
+              "Weight,Dosage,WeightChange,Notes,SideEffects,VisceralFat,MuscleMass,BatchNumber");
 
             foreach (var r in reports)
             {
                 var sideEffects = string.Join("|", r.SideEffects.Select(se => se.Name));
                 sb.AppendLine(string.Join(",",
-                    r.Patient.PatientId,
-                    Escape(r.Patient.Firstname),
-                    Escape(r.Patient.Surname),
-                    r.Patient.DateOfBirth.ToString("yyyy-MM-dd"),
-                    Escape(r.Patient.Email),
-                    // Force InvariantCulture on ALL numerics so decimal point is always "."
-                    r.Patient.StartingWeight.ToString("F2", CultureInfo.InvariantCulture),
-                    r.Patient.TreatmentStartDate.ToString("yyyy-MM-dd"),
-                    r.ReportId,
-                    r.ReportNumber,
-                    r.WeekNumber,
-                    r.Date.ToString("yyyy-MM-dd"),
-                    r.Weight.ToString("F2", CultureInfo.InvariantCulture),
-                    r.Dosage.ToString("F2", CultureInfo.InvariantCulture),
-                    r.WeightChange.ToString("F2", CultureInfo.InvariantCulture),
-                    Escape(r.Notes ?? ""),
-                    Escape(sideEffects)
-                ));
+                r.Patient.PatientId,
+                Escape(r.Patient.Firstname),
+                Escape(r.Patient.Surname),
+                r.Patient.DateOfBirth.ToString("yyyy-MM-dd"),
+                Escape(r.Patient.Email),
+                r.Patient.StartingWeight.ToString("F2", CultureInfo.InvariantCulture),
+                r.Patient.TreatmentStartDate.ToString("yyyy-MM-dd"),
+                r.ReportId,
+                r.ReportNumber,
+                r.WeekNumber,
+                r.Date.ToString("yyyy-MM-dd"),
+                r.Weight.ToString("F2", CultureInfo.InvariantCulture),
+                r.Dosage.ToString("F2", CultureInfo.InvariantCulture),
+                r.WeightChange.ToString("F2", CultureInfo.InvariantCulture),
+                Escape(r.Notes ?? ""),
+                Escape(sideEffects),
+                r.VisceralFat.HasValue ? r.VisceralFat.Value.ToString("F2", CultureInfo.InvariantCulture) : "",
+                r.MuscleMass.HasValue ? r.MuscleMass.Value.ToString("F2", CultureInfo.InvariantCulture) : "",
+                Escape(r.BatchNumber ?? "")
+            ));
             }
 
             return sb.ToString();

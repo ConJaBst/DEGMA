@@ -7,6 +7,7 @@
     .OrderByDescending(r => r.Date)
     .FirstOrDefault()?.Weight ?? Model.StartingWeight;
     var totalLost = currentWeight - Model.StartingWeight;
+    double? toGoal = Model.GoalWeight.HasValue ? currentWeight - Model.GoalWeight.Value : null;
     var reportsAscending = Model.Reports.OrderBy(r => r.Date).ToList();
     bool hasVisceralFat = Model.Reports.Any(r => r.VisceralFat != null);
     bool hasMuscleMass = Model.Reports.Any(r => r.MuscleMass != null);
@@ -108,16 +109,41 @@
                         <span class="h4">@Model.StartingWeight kg</span>
                     </div>
 
-                    <div class="mb-3">
-                        <label class="text-muted d-block small">Current Weight</label>
-                        <span class="h4">@currentWeight kg</span>
+                    <div class="row mb-3">
+                        <div class="col">
+                            <label class="text-muted d-block small">Current Weight</label>
+                            <span class="h4">@currentWeight kg</span>
+                        </div>
+                        @if (Model.GoalWeight.HasValue)
+                        {
+                            <div class="col">
+                                <label class="text-muted d-block small">Goal Weight</label>
+                                <span class="h4">@Model.GoalWeight kg</span>
+                            </div>
+                        }
                     </div>
 
-                    <div class="mb-1">
-                        <label class="text-muted d-block small">Total Progress</label>
-                        <span class="h4 @(totalLost <= 0 ? "text-success" : "text-danger")">
-                            @(totalLost > 0 ? "+" : "")@totalLost.ToString("0.00") kg
-                        </span>
+                    <div class="row mb-1">
+                        <div class="col">
+                            <label class="text-muted d-block small">Total Progress</label>
+                            <span class="h4 @(totalLost <= 0 ? "text-success" : "text-danger")">
+                                @(totalLost > 0 ? "+" : "")@totalLost.ToString("0.00") kg
+                            </span>
+                        </div>
+                        @if (toGoal.HasValue)
+                        {
+                            <div class="col">
+                                <label class="text-muted d-block small">To Goal</label>
+                                @if (toGoal <= 0)
+                                {
+                                    <span class="h4 text-success">Goal reached</span>
+                                }
+                                else
+                                {
+                                    <span class="h4">@toGoal.Value.ToString("0.00") kg</span>
+                                }
+                            </div>
+                        }
                     </div>
 
                     <hr class="opacity-10" />

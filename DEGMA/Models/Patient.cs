@@ -11,6 +11,7 @@ namespace DEGMA.Models
         [DataType(DataType.Date)] public DateOnly DateOfBirth { get; set; }
         public string Email { get; set; }
         public double StartingWeight { get; set; }
+        public double? GoalWeight { get; set; }
         [DataType(DataType.Date)]
         public DateOnly TreatmentStartDate { get; set; } = DateOnly.FromDateTime(DateTime.Now);
 

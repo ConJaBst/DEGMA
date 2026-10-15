@@ -35,6 +35,54 @@ namespace DEGMA.Controllers
             return RedirectToAction("Index", "Home");
         }
 
+        // Confirmation step: shows what restoring the chosen backup will replace.
+        [HttpGet]
+        [Authorize(Roles = "Doctor")]
+        public async Task<IActionResult> ConfirmRestore(string file)
+        {
+            var backup = _backupService.FindBackup(file);
+            if (backup == null)
+            {
+                TempData["BackupError"] = "Choose a backup to restore.";
+                return RedirectToAction("Index", "Home");
+            }
+
+            var invalid = await _backupService.ValidateAsync(backup.FullPath);
+            if (invalid != null)
+            {
+                TempData["BackupError"] = $"{backup.FileName} cannot be restored. {invalid}";
+                return RedirectToAction("Index", "Home");
+            }
+
+            var counts = await _backupService.CountRecordsAsync(backup.FullPath);
+            ViewBag.BackupPatients = counts?.Patients;
+            ViewBag.BackupReports = counts?.Reports;
+            ViewBag.CurrentPatients = await _context.Patients.CountAsync();
+            ViewBag.CurrentReports = await _context.Reports.CountAsync();
+
+            return View(backup);
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [Authorize(Roles = "Doctor")]
+        public async Task<IActionResult> Restore(string file, bool confirmed)
+        {
+            if (!confirmed)
+                return RedirectToAction(nameof(ConfirmRestore), new { file });
+
+            var result = await _backupService.RestoreAsync(file);
+
+            if (result.Success)
+                TempData["BackupSuccess"] = $"Database restored from the backup of " +
+                    $"{_backupService.FindBackup(file)?.Time.ToString("dd MMM yyyy HH:mm") ?? file}. " +
+                    $"The data from before the restore was saved as {Path.GetFileName(result.PreRestoreBackup!.Copies[0])}.";
+            else
+                TempData["BackupError"] = result.Error;
+
+            return RedirectToAction("Index", "Home");
+        }
+
         [HttpPost]
         [Authorize(Roles = "Doctor")]
         public async Task<IActionResult> Download(bool includePrime, bool includePatients, bool includeReports)

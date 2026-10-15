@@ -1,0 +1,68 @@
+@model DEGMA.Services.BackupFile
+
+@{
+    ViewData["Title"] = "Restore Backup";
+    int? backupPatients = ViewBag.BackupPatients;
+    int? backupReports = ViewBag.BackupReports;
+    int currentPatients = ViewBag.CurrentPatients;
+    int currentReports = ViewBag.CurrentReports;
+}
+
+<div class="container px-4 mt-4" style="max-width:720px;">
+    <div class="card shadow-sm border border-danger border-opacity-50">
+        <div class="card-body">
+            <h4 class="fw-bold text-white mb-3">
+                <i class="bi bi-exclamation-triangle text-danger me-2"></i>Restore database from backup?
+            </h4>
+
+            <p class="text-white mb-1">
+                Backup taken <strong>@Model.Time.ToString("dddd dd MMM yyyy 'at' HH:mm")</strong>
+            </p>
+            <small class="text-muted d-block mb-3">
+                @Model.FileName &middot; @(Model.Size / 1024) KB &middot; @string.Join(" + ", Model.Locations)
+            </small>
+
+            <div class="alert alert-danger small">
+                Everything entered or changed after
+                <strong>@Model.Time.ToString("dd MMM yyyy HH:mm")</strong>
+                (patients, reports, side effects and user accounts) will be replaced by the backup.
+                A "Pre-restore" backup of the current data is taken first, so this can be undone
+                by restoring that backup.
+            </div>
+
+            <table class="table table-sm table-borderless text-white small mb-4" style="max-width:360px;">
+                <thead>
+                    <tr class="text-muted"><th></th><th>Now</th><th>In backup</th></tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td class="text-muted">Patients</td>
+                        <td>@currentPatients</td>
+                        <td>@(backupPatients?.ToString() ?? "?")</td>
+                    </tr>
+                    <tr>
+                        <td class="text-muted">Reports</td>
+                        <td>@currentReports</td>
+                        <td>@(backupReports?.ToString() ?? "?")</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <form asp-action="Restore" method="post">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="file" value="@Model.FileName" />
+                <div class="form-check mb-3">
+                    <input class="form-check-input" type="checkbox" name="confirmed" value="true"
+                           id="chkConfirmRestore" required />
+                    <label class="form-check-label text-white small" for="chkConfirmRestore">
+                        I understand that data entered after this backup will be lost.
+                    </label>
+                </div>
+                <button type="submit" class="btn btn-danger btn-sm">
+                    <i class="bi bi-arrow-counterclockwise me-1"></i> Restore this backup
+                </button>
+                <a asp-controller="Home" asp-action="Index" class="btn btn-outline-secondary btn-sm ms-2">Cancel</a>
+            </form>
+        </div>
+    </div>
+</div>

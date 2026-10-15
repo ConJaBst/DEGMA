@@ -17,23 +17,30 @@ namespace DEGMA.Services
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
             using var timer = new PeriodicTimer(TimeSpan.FromMinutes(1));
-            do
+            try
             {
-                try
+                do
                 {
-                    if (IsDue())
+                    try
                     {
-                        var result = await _backup.RunAsync("Scheduled");
-                        if (!result.Success)
-                            _logger.LogWarning("Scheduled backup had errors: {Errors}", string.Join("; ", result.Errors));
+                        if (IsDue())
+                        {
+                            var result = await _backup.RunAsync("Scheduled");
+                            if (!result.Success)
+                                _logger.LogWarning("Scheduled backup had errors: {Errors}", string.Join("; ", result.Errors));
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Scheduled backup failed");
                     }
                 }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Scheduled backup failed");
-                }
+                while (await timer.WaitForNextTickAsync(stoppingToken));
             }
-            while (await timer.WaitForNextTickAsync(stoppingToken));
+            catch (OperationCanceledException)
+            {
+                // The app is shutting down.
+            }
         }
 
         private bool IsDue()

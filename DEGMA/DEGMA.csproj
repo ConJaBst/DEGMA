@@ -12,7 +12,7 @@
 		<PublishSingleFile>true</PublishSingleFile>
 		<SelfContained>true</SelfContained>
 		<RuntimeIdentifier>win-x64</RuntimeIdentifier>
-		<PublishReadyToRun>false</PublishReadyToRun>
+		<PublishReadyToRun>true</PublishReadyToRun>
 
 		<!-- This tells the EXE to unzip itself into a temp folder so it can find the JSON files -->
 		<IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>

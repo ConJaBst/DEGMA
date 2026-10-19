@@ -64,6 +64,9 @@ namespace DEGMA.Migrations
                     b.Property<DateOnly>("Date")
                         .HasColumnType("TEXT");
 
+                    b.Property<int?>("DiastolicBp")
+                        .HasColumnType("INTEGER");
+
                     b.Property<decimal>("Dosage")
                         .HasColumnType("TEXT");
 
@@ -76,7 +79,13 @@ namespace DEGMA.Migrations
                     b.Property<int>("PatientId")
                         .HasColumnType("INTEGER");
 
+                    b.Property<int?>("Pulse")
+                        .HasColumnType("INTEGER");
+
                     b.Property<int>("ReportNumber")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int?>("SystolicBp")
                         .HasColumnType("INTEGER");
 
                     b.Property<decimal?>("VisceralFat")

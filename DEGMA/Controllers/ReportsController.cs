@@ -79,7 +79,7 @@ namespace DEGMA.Controllers
         [ValidateAntiForgeryToken]
         [Authorize(Roles = "Doctor")]
         public async Task<IActionResult> Create(
-            [Bind("ReportId,ReportNumber,WeekNumber,Weight,Dosage,Notes,PatientId,Date,VisceralFat,MuscleMass,BatchNumber")]
+            [Bind("ReportId,ReportNumber,WeekNumber,Weight,Dosage,Notes,PatientId,Date,VisceralFat,MuscleMass,Pulse,SystolicBp,DiastolicBp,BatchNumber")]
             Report report, int[] selectedSideEffects, int? returnPatientId)
         {
             ModelState.Remove("WeightChange");
@@ -193,7 +193,7 @@ namespace DEGMA.Controllers
         [ValidateAntiForgeryToken]
         [Authorize(Roles = "Doctor")]
         public async Task<IActionResult> Edit(int id,
-            [Bind("ReportId,ReportNumber,WeekNumber,Weight,Dosage,WeightChange,Notes,PatientId,Date,VisceralFat,MuscleMass,BatchNumber")]
+            [Bind("ReportId,ReportNumber,WeekNumber,Weight,Dosage,WeightChange,Notes,PatientId,Date,VisceralFat,MuscleMass,Pulse,SystolicBp,DiastolicBp,BatchNumber")]
             Report report, int[] selectedSideEffects)
         {
             if (id != report.ReportId) return NotFound();
@@ -234,6 +234,9 @@ namespace DEGMA.Controllers
                     existing.Notes = report.Notes;
                     existing.VisceralFat = report.VisceralFat;
                     existing.MuscleMass = report.MuscleMass;
+                    existing.Pulse = report.Pulse;
+                    existing.SystolicBp = report.SystolicBp;
+                    existing.DiastolicBp = report.DiastolicBp;
                     existing.BatchNumber = report.BatchNumber;
 
                     existing.SideEffects.Clear();

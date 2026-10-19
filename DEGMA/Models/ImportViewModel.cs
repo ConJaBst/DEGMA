@@ -25,6 +25,9 @@
         public string VisceralFat { get; set; } = "";
         public string MuscleMass { get; set; } = "";
         public string BatchNumber { get; set; } = "";
+        public string Pulse { get; set; } = "";
+        public string SystolicBp { get; set; } = "";
+        public string DiastolicBp { get; set; } = "";
         public List<string> NewSideEffects { get; set; } = new();
 
     }

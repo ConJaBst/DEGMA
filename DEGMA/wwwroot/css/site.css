@@ -276,3 +276,12 @@ tr.history-row {
 .vital-normal { color: #4ade80; background-color: rgba(74, 222, 128, 0.12); }
 .vital-high { color: #fff; background-color: #dc3545; }
 .vital-low { color: #1c1f23; background-color: #fbbf24; }
+
+/* Patient directory: double-click a row to open the profile */
+tr.patient-row {
+    cursor: pointer;
+}
+
+    tr.patient-row:hover > td:first-child {
+        box-shadow: inset 3px 0 0 var(--accent);
+    }

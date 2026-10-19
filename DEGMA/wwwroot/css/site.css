@@ -177,3 +177,12 @@ label.text-muted, .small.text-muted {
 .side-effect-picker .dropdown-divider {
     border-color: var(--border);
 }
+
+/* Patient directory: double-click a row to open the profile */
+tr.patient-row {
+    cursor: pointer;
+}
+
+    tr.patient-row:hover > td:first-child {
+        box-shadow: inset 3px 0 0 var(--accent);
+    }

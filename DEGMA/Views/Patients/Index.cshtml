@@ -98,7 +98,9 @@
                 <tbody>
                     @foreach (var item in Model)
                     {
-                        <tr>
+                        <tr class="patient-row"
+                            data-details-url="@Url.Action("Details", new { id = item.PatientId })"
+                            title="Double-click to open @item.Firstname @item.Surname">
                             <td class="ps-4 fw-bold text-primary">@item.Firstname @item.Surname</td>
                             <td>@item.Email</td>
                             <td>@item.DateOfBirth</td>
@@ -165,6 +167,15 @@
 
 @section Scripts {
     <script>
+        // Double-click anywhere on a row (except its buttons and links) opens the patient's profile
+        document.querySelectorAll('tr.patient-row').forEach(function (row) {
+            row.addEventListener('dblclick', function (e) {
+                if (e.target.closest('a, button, input, form')) return;
+                window.getSelection()?.removeAllRanges();
+                window.location.href = row.dataset.detailsUrl;
+            });
+        });
+
         document.getElementById('deletePatientModal').addEventListener('show.bs.modal', function (e) {
             const button = e.relatedTarget;
             const patientId = button.getAttribute('data-patient-id');

@@ -1,4 +1,4 @@
-# Deploys the dev branch (master) to an Azure App Service web app on every push.
+# Deploys the dev branch (Dev) to an Azure App Service web app on every push.
 #
 # One-time setup (see README "Dev site"):
 #   1. Create a Windows web app on Azure App Service (Free F1 plan, .NET 10 stack).
@@ -16,7 +16,7 @@ name: Deploy dev site
 
 on:
   push:
-    branches: [master]
+    branches: [Dev]
   workflow_dispatch:
 
 concurrency:

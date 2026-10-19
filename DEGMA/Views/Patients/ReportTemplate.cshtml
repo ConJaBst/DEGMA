@@ -326,6 +326,34 @@
         }
         .footer-left  { display: table-cell; }
         .footer-right { display: table-cell; text-align: right; }
+
+        /* Print / PDF (Download PDF and Email Report print this page with Edge).
+           The screen layout above is unchanged; this only fits it onto A4 pages. */
+        @@page { size: A4; margin: 0; }
+
+        @@media print {
+            html {
+                display: block;
+                padding: 0;
+                background: #1a1a2e;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+            body {
+                width: auto;
+                min-height: 0;
+                padding: 10mm 12mm;
+                /* repeat the padding on every page so the dark background runs edge to edge */
+                -webkit-box-decoration-break: clone;
+                box-decoration-break: clone;
+            }
+
+            .section-title { break-after: avoid; }
+            .header, .info-block, .stats-row, .chart-card, .footer { break-inside: avoid; }
+            .history-card { overflow: visible; }
+            .history-card thead { display: table-header-group; }
+            .history-card tr { break-inside: avoid; }
+        }
     </style>
 </head>
 <body>

@@ -2,8 +2,6 @@ using DEGMA.Binders;
 using DEGMA.Data;
 using DEGMA.Models;
 using DEGMA.Services;
-using DinkToPdf;
-using DinkToPdf.Contracts;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
@@ -51,9 +49,8 @@ builder.Services.Configure<BackupSettings>(
 // APPLICATION SERVICES
 // ================================================================
 
-// PDF generation
-builder.Services.AddSingleton(typeof(IConverter),
-    new SynchronizedConverter(new PdfTools()));
+// PDF generation (prints the report HTML with headless Microsoft Edge)
+builder.Services.AddSingleton<PdfService>();
 
 // Email
 builder.Services.AddTransient<EmailService>();

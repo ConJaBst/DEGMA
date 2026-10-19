@@ -119,26 +119,7 @@
 
                 @* Row 5: Side Effects *@
                 <div class="mb-3">
-                    <label class="form-label fw-bold small text-uppercase mb-2 text-muted">Observed Side Effects</label>
-                    <div class="p-3 rounded border bg-dark text-light"
-                         style="max-height: 150px; overflow-y: auto; border-color: var(--border) !important;">
-                        <div class="row row-cols-4 g-1">
-                            @foreach (var sideEffect in (List<DEGMA.Models.SideEffect>)ViewBag.AllSideEffects)
-                            {
-                                <div class="col">
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="checkbox"
-                                               name="selectedSideEffects"
-                                               value="@sideEffect.SideEffectId"
-                                               id="se_@sideEffect.SideEffectId" />
-                                        <label class="form-check-label small" for="se_@sideEffect.SideEffectId">
-                                            @sideEffect.Name
-                                        </label>
-                                    </div>
-                                </div>
-                            }
-                        </div>
-                    </div>
+                    <partial name="_SideEffectPicker" model="@(ViewBag.SelectedSideEffectIds as IEnumerable<int>)" />
                 </div>
 
                 <div class="d-flex justify-content-between align-items-center pt-3 border-top">

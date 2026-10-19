@@ -80,7 +80,7 @@ namespace DEGMA.Controllers
         [Authorize(Roles = "Doctor")]
         public async Task<IActionResult> Create(
             [Bind("ReportId,ReportNumber,WeekNumber,Weight,Dosage,Notes,PatientId,Date,VisceralFat,MuscleMass,Pulse,SystolicBp,DiastolicBp,BatchNumber")]
-            Report report, int[] selectedSideEffects, int? returnPatientId)
+            Report report, int[] selectedSideEffects, string? otherSideEffects, int? returnPatientId)
         {
             ModelState.Remove("WeightChange");
             ModelState.Remove("Notes");
@@ -109,15 +109,8 @@ namespace DEGMA.Controllers
                         .Count(r => r.Date <= report.Date) + 1;
                 }
 
-                if (selectedSideEffects != null)
-                {
-                    foreach (var sideEffectId in selectedSideEffects)
-                    {
-                        var sideEffect = await _context.SideEffects.FindAsync(sideEffectId);
-                        if (sideEffect != null)
-                            report.SideEffects.Add(sideEffect);
-                    }
-                }
+                report.SideEffects.AddRange(
+                    await ResolveSideEffectsAsync(selectedSideEffects, otherSideEffects));
 
                 _context.Add(report);
                 await _context.SaveChangesAsync();
@@ -140,6 +133,8 @@ namespace DEGMA.Controllers
                 report.PatientId
             );
             ViewBag.AllSideEffects = _context.SideEffects.ToList();
+            ViewBag.SelectedSideEffectIds = selectedSideEffects ?? Array.Empty<int>();
+            ViewBag.OtherSideEffects = otherSideEffects;
             ViewBag.PreselectedPatientId = returnPatientId;
 
             if (returnPatientId.HasValue)
@@ -194,7 +189,7 @@ namespace DEGMA.Controllers
         [Authorize(Roles = "Doctor")]
         public async Task<IActionResult> Edit(int id,
             [Bind("ReportId,ReportNumber,WeekNumber,Weight,Dosage,WeightChange,Notes,PatientId,Date,VisceralFat,MuscleMass,Pulse,SystolicBp,DiastolicBp,BatchNumber")]
-            Report report, int[] selectedSideEffects)
+            Report report, int[] selectedSideEffects, string? otherSideEffects)
         {
             if (id != report.ReportId) return NotFound();
 
@@ -240,14 +235,8 @@ namespace DEGMA.Controllers
                     existing.BatchNumber = report.BatchNumber;
 
                     existing.SideEffects.Clear();
-                    if (selectedSideEffects != null)
-                    {
-                        foreach (var seId in selectedSideEffects)
-                        {
-                            var se = await _context.SideEffects.FindAsync(seId);
-                            if (se != null) existing.SideEffects.Add(se);
-                        }
-                    }
+                    existing.SideEffects.AddRange(
+                        await ResolveSideEffectsAsync(selectedSideEffects, otherSideEffects));
 
                     await _context.SaveChangesAsync();
                 }
@@ -261,7 +250,37 @@ namespace DEGMA.Controllers
             }
 
             ViewBag.AllSideEffects = await _context.SideEffects.ToListAsync();
+            ViewBag.SelectedSideEffectIds = selectedSideEffects ?? Array.Empty<int>();
+            ViewBag.OtherSideEffects = otherSideEffects;
             return View(report);
+        }
+
+        // Turns the posted side effect ids plus the free-text "Other" box (comma-separated)
+        // into SideEffect rows. Custom names match existing rows case-insensitively;
+        // unknown names are added to the table so they appear in the dropdown next time.
+        private async Task<List<SideEffect>> ResolveSideEffectsAsync(int[]? selectedIds, string? otherText)
+        {
+            var all = await _context.SideEffects.ToListAsync();
+            var ids = new HashSet<int>(selectedIds ?? Array.Empty<int>());
+            var result = all.Where(s => ids.Contains(s.SideEffectId)).ToList();
+
+            var customNames = (otherText ?? "")
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Distinct(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var name in customNames)
+            {
+                var match = all.FirstOrDefault(s => string.Equals(s.Name.Trim(), name, StringComparison.OrdinalIgnoreCase));
+                if (match == null)
+                {
+                    match = new SideEffect { Name = name };
+                    _context.SideEffects.Add(match);
+                    all.Add(match);
+                }
+                if (!result.Contains(match)) result.Add(match);
+            }
+
+            return result;
         }
 
         // GET: Reports/Delete/5

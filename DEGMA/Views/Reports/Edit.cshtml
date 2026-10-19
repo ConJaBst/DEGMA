@@ -119,30 +119,7 @@
 
                 @* Row 4: Side Effects *@
                 <div class="mb-3">
-                    <label class="form-label fw-bold small text-uppercase mb-2 text-muted">
-                        Observed Side Effects
-                    </label>
-                    <div class="p-3 rounded border bg-dark text-light"
-                         style="max-height: 150px; overflow-y: auto; border-color: var(--border) !important;">
-                        <div class="row row-cols-4 g-1">
-                            @foreach (var se in ViewBag.AllSideEffects as List<DEGMA.Models.SideEffect>)
-                            {
-                                var isChecked = Model.SideEffects.Any(s => s.SideEffectId == se.SideEffectId);
-                                <div class="col">
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="checkbox"
-                                               name="selectedSideEffects"
-                                               value="@se.SideEffectId"
-                                               id="se_@se.SideEffectId"
-                                        @(isChecked ? "checked" : "") />
-                                        <label class="form-check-label small" for="se_@se.SideEffectId">
-                                            @se.Name
-                                        </label>
-                                    </div>
-                                </div>
-                            }
-                        </div>
-                    </div>
+                    <partial name="_SideEffectPicker" model="@(ViewBag.SelectedSideEffectIds as IEnumerable<int> ?? Model.SideEffects.Select(s => s.SideEffectId))" />
                 </div>
 
                 <div class="d-flex justify-content-between align-items-center pt-3 border-top">

@@ -135,7 +135,7 @@ namespace DEGMA.Controllers
             var sb = new StringBuilder();
             sb.AppendLine("PatientId,Firstname,Surname,DateOfBirth,Email,StartingWeight," +
               "TreatmentStartDate,ReportId,ReportNumber,WeekNumber,Date," +
-              "Weight,Dosage,WeightChange,Notes,SideEffects,VisceralFat,MuscleMass,BatchNumber");
+              "Weight,Dosage,WeightChange,Notes,SideEffects,VisceralFat,MuscleMass,BatchNumber,Pulse,SystolicBp,DiastolicBp");
 
             foreach (var r in reports)
             {
@@ -159,7 +159,10 @@ namespace DEGMA.Controllers
                 Escape(sideEffects),
                 r.VisceralFat.HasValue ? r.VisceralFat.Value.ToString("F2", CultureInfo.InvariantCulture) : "",
                 r.MuscleMass.HasValue ? r.MuscleMass.Value.ToString("F2", CultureInfo.InvariantCulture) : "",
-                Escape(r.BatchNumber ?? "")
+                Escape(r.BatchNumber ?? ""),
+                r.Pulse?.ToString(CultureInfo.InvariantCulture) ?? "",
+                r.SystolicBp?.ToString(CultureInfo.InvariantCulture) ?? "",
+                r.DiastolicBp?.ToString(CultureInfo.InvariantCulture) ?? ""
             ));
             }
 

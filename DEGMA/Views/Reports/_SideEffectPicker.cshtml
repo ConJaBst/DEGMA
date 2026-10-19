@@ -1,0 +1,98 @@
+@*
+    Multi-select side effect dropdown, built on the locally bundled Bootstrap dropdown
+    so it works offline. Posts the chosen ids as selectedSideEffects and any custom
+    text as otherSideEffects (comma-separated).
+    Model: ids of the side effects that should start selected.
+*@
+@model IEnumerable<int>
+@{
+    var allSideEffects = ((IEnumerable<DEGMA.Models.SideEffect>)ViewBag.AllSideEffects)
+        .OrderBy(s => s.Name, StringComparer.OrdinalIgnoreCase)
+        .ToList();
+    var selected = new HashSet<int>(Model ?? Enumerable.Empty<int>());
+    var otherText = ViewBag.OtherSideEffects as string ?? "";
+    var otherChecked = !string.IsNullOrWhiteSpace(otherText);
+}
+
+<div class="side-effect-picker" id="sideEffectPicker">
+    <label class="form-label fw-bold small text-uppercase mb-2 text-muted" for="sideEffectToggle">
+        Observed Side Effects
+    </label>
+    <div class="dropdown">
+        <button class="form-select text-start" type="button" id="sideEffectToggle"
+                data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
+            <span class="se-summary">None</span>
+        </button>
+        <div class="dropdown-menu w-100 p-2" aria-labelledby="sideEffectToggle">
+            <input type="text" class="form-control form-control-sm mb-2 se-filter"
+                   placeholder="Type to filter..." autocomplete="off" />
+            <div class="se-options">
+                @foreach (var se in allSideEffects)
+                {
+                    <div class="form-check se-option">
+                        <input class="form-check-input" type="checkbox"
+                               name="selectedSideEffects"
+                               value="@se.SideEffectId"
+                               id="se_@se.SideEffectId"
+                               data-name="@se.Name"
+                               @(selected.Contains(se.SideEffectId) ? "checked" : "") />
+                        <label class="form-check-label small" for="se_@se.SideEffectId">@se.Name</label>
+                    </div>
+                }
+            </div>
+            <hr class="dropdown-divider" />
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="se_other" @(otherChecked ? "checked" : "") />
+                <label class="form-check-label small fw-bold" for="se_other">Other (not listed)</label>
+            </div>
+        </div>
+    </div>
+    <div class="mt-2 se-other-wrap" style="@(otherChecked ? "" : "display:none;")">
+        <input type="text" name="otherSideEffects" id="otherSideEffects" class="form-control"
+               value="@otherText" maxlength="500"
+               placeholder="Describe the side effect (separate several with commas)" />
+        <span class="text-muted small d-block mt-1" style="font-size:10px;">
+            New entries are added to the side effect list for next time.
+        </span>
+    </div>
+</div>
+
+<script>
+    (function () {
+        const root = document.getElementById('sideEffectPicker');
+        const summary = root.querySelector('.se-summary');
+        const boxes = root.querySelectorAll('input[name="selectedSideEffects"]');
+        const other = root.querySelector('#se_other');
+        const otherWrap = root.querySelector('.se-other-wrap');
+        const otherInput = root.querySelector('#otherSideEffects');
+        const filter = root.querySelector('.se-filter');
+
+        function refresh() {
+            const names = Array.from(boxes).filter(b => b.checked).map(b => b.dataset.name);
+            if (other.checked) names.push('Other' + (otherInput.value.trim() ? ': ' + otherInput.value.trim() : ''));
+            summary.textContent = names.length ? names.join(', ') : 'None';
+            summary.classList.toggle('text-muted', names.length === 0);
+        }
+
+        boxes.forEach(b => b.addEventListener('change', refresh));
+        other.addEventListener('change', function () {
+            otherWrap.style.display = other.checked ? '' : 'none';
+            if (other.checked) otherInput.focus();
+            else otherInput.value = '';
+            refresh();
+        });
+        otherInput.addEventListener('input', refresh);
+
+        filter.addEventListener('input', function () {
+            const q = filter.value.trim().toLowerCase();
+            root.querySelectorAll('.se-option').forEach(o => {
+                const name = o.querySelector('input').dataset.name.toLowerCase();
+                o.style.display = name.includes(q) ? '' : 'none';
+            });
+        });
+        // Enter in the filter shouldn't submit the report form
+        filter.addEventListener('keydown', e => { if (e.key === 'Enter') e.preventDefault(); });
+
+        refresh();
+    })();
+</script>

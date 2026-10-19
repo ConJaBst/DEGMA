@@ -34,7 +34,9 @@
             </div>
         </nav>
     </header>
-    <div class="container">
+    @* Pages can set ViewData["WideLayout"] = true to use more of a wide screen *@
+    <div class="@(ViewData["WideLayout"] is true ? "container-fluid px-4" : "container")"
+         style="@(ViewData["WideLayout"] is true ? "max-width: 1800px;" : null)">
         <main role="main" class="pb-3">
             @RenderBody()
         </main>

@@ -45,6 +45,9 @@ builder.Services.Configure<EmailSettings>(
 builder.Services.Configure<BackupSettings>(
     builder.Configuration.GetSection("BackupSettings"));
 
+builder.Services.Configure<ReportCheckSettings>(
+    builder.Configuration.GetSection("ReportChecks"));
+
 // ================================================================
 // APPLICATION SERVICES
 // ================================================================
@@ -143,6 +146,9 @@ using (var scope = app.Services.CreateScope())
         await userManager.CreateAsync(receptionist, "Receptionist123");
         await userManager.AddToRoleAsync(receptionist, "Receptionist");
     }
+
+    // 3b. Seed the standard side effect dictionary (adds missing names only)
+    await SideEffectDictionary.SeedAsync(services.GetRequiredService<ApplicationDbContext>());
 
     // 4. Backfill batch number on any reports that don't have one
     //    Safe to leave permanently — only touches null/empty records

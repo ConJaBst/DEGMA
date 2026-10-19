@@ -66,7 +66,11 @@ namespace DEGMA.Controllers
                     SideEffects = parts.Count > 15 ? parts[15].Trim() : "",
                     VisceralFat = parts.Count > 16 ? parts[16].Trim() : "",
                     MuscleMass = parts.Count > 17 ? parts[17].Trim() : "",
-                    BatchNumber = parts.Count > 18 ? parts[18].Trim() : ""
+                    BatchNumber = parts.Count > 18 ? parts[18].Trim() : "",
+                    // Older exports end at BatchNumber, so vitals are optional here
+                    Pulse = parts.Count > 19 ? parts[19].Trim() : "",
+                    SystolicBp = parts.Count > 20 ? parts[20].Trim() : "",
+                    DiastolicBp = parts.Count > 21 ? parts[21].Trim() : ""
                 };
 
                 ValidateRow(row);
@@ -316,6 +320,13 @@ namespace DEGMA.Controllers
                         CultureInfo.InvariantCulture, out var mm))
                         muscleMass = mm;
 
+                    int? pulse = int.TryParse(row.Pulse, NumberStyles.Integer,
+                        CultureInfo.InvariantCulture, out var pu) ? pu : null;
+                    int? systolicBp = int.TryParse(row.SystolicBp, NumberStyles.Integer,
+                        CultureInfo.InvariantCulture, out var sys) ? sys : null;
+                    int? diastolicBp = int.TryParse(row.DiastolicBp, NumberStyles.Integer,
+                        CultureInfo.InvariantCulture, out var dia) ? dia : null;
+
                     var report = new Report
                     {
                         PatientId = patient.PatientId,
@@ -328,6 +339,9 @@ namespace DEGMA.Controllers
                         Notes = row.Notes ?? string.Empty,
                         VisceralFat = visceralFat,
                         MuscleMass = muscleMass,
+                        Pulse = pulse,
+                        SystolicBp = systolicBp,
+                        DiastolicBp = diastolicBp,
                         BatchNumber = string.IsNullOrWhiteSpace(row.BatchNumber) ? null : row.BatchNumber
                     };
 

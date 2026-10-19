@@ -51,13 +51,14 @@
                     <div class="col-md-3">
                         <label asp-for="Dosage" class="form-label fw-bold small text-uppercase">Dosage (mg)</label>
                         <input asp-for="Dosage" id="dosageInput" class="form-control"
-                               value="@(ViewBag.LastDosage != null ? ((decimal)ViewBag.LastDosage).ToString(System.Globalization.CultureInfo.InvariantCulture) : "")" />
+                               value="@(Model != null ? Model.Dosage.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                                      : ViewBag.LastDosage != null ? ((decimal)ViewBag.LastDosage).ToString(System.Globalization.CultureInfo.InvariantCulture) : "")" />
                         <span asp-validation-for="Dosage" class="text-danger"></span>
                     </div>
                     <div class="col-md-3">
                         <label asp-for="BatchNumber" class="form-label fw-bold small text-uppercase">Batch Number</label>
                         <input asp-for="BatchNumber" class="form-control"
-                               value="@(ViewBag.CurrentBatchNumber ?? "")" />
+                               value="@(Model?.BatchNumber ?? ViewBag.CurrentBatchNumber ?? "")" />
                         <span class="text-muted small mt-1 d-block" style="font-size:10px;">
                             Pre-filled from clinic setting — edit if needed.
                         </span>
@@ -83,7 +84,7 @@
                     </div>
                 </div>
 
-                @* Row 4: Visceral Fat + Muscle Mass *@
+                @* Row 4: Visceral Fat, Muscle Mass, Pulse, Blood Pressure *@
                 <div class="row mb-3">
                     <div class="col-md-3">
                         <label asp-for="VisceralFat" class="form-label fw-bold small text-uppercase">Visceral Fat (kg)</label>
@@ -97,30 +98,28 @@
                                class="form-control" placeholder="Optional" />
                         <div id="muscleMassWarning" class="text-muted small mt-1" style="display:none;"></div>
                     </div>
+                    <div class="col-md-2">
+                        <label asp-for="Pulse" class="form-label fw-bold small text-uppercase">Pulse (bpm)</label>
+                        <input asp-for="Pulse" type="number" min="20" max="250" step="1" class="form-control" />
+                        <span asp-validation-for="Pulse" class="text-danger"></span>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label fw-bold small text-uppercase" for="SystolicBp">Blood Pressure (mmHg)</label>
+                        <div class="input-group">
+                            <input asp-for="SystolicBp" type="number" min="50" max="300" step="1"
+                                   class="form-control" placeholder="Systolic" aria-label="Systolic" />
+                            <span class="input-group-text">/</span>
+                            <input asp-for="DiastolicBp" type="number" min="20" max="200" step="1"
+                                   class="form-control" placeholder="Diastolic" aria-label="Diastolic" />
+                        </div>
+                        <span asp-validation-for="SystolicBp" class="text-danger d-block"></span>
+                        <span asp-validation-for="DiastolicBp" class="text-danger d-block"></span>
+                    </div>
                 </div>
 
                 @* Row 5: Side Effects *@
                 <div class="mb-3">
-                    <label class="form-label fw-bold small text-uppercase mb-2 text-muted">Observed Side Effects</label>
-                    <div class="p-3 rounded border bg-dark text-light"
-                         style="max-height: 150px; overflow-y: auto; border-color: var(--border) !important;">
-                        <div class="row row-cols-4 g-1">
-                            @foreach (var sideEffect in (List<DEGMA.Models.SideEffect>)ViewBag.AllSideEffects)
-                            {
-                                <div class="col">
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="checkbox"
-                                               name="selectedSideEffects"
-                                               value="@sideEffect.SideEffectId"
-                                               id="se_@sideEffect.SideEffectId" />
-                                        <label class="form-check-label small" for="se_@sideEffect.SideEffectId">
-                                            @sideEffect.Name
-                                        </label>
-                                    </div>
-                                </div>
-                            }
-                        </div>
-                    </div>
+                    <partial name="_SideEffectPicker" model="@(ViewBag.SelectedSideEffectIds as IEnumerable<int>)" />
                 </div>
 
                 <div class="d-flex justify-content-between align-items-center pt-3 border-top">
@@ -236,12 +235,17 @@
                         lastVisceralFat = data.lastVisceralFat;
                         lastMuscleMass = data.lastMuscleMass;
 
-                        $('#visceralFatInput').val(
-                            lastVisceralFat !== null ? Number(lastVisceralFat).toFixed(2) : ''
-                        );
-                        $('#muscleMassInput').val(
-                            lastMuscleMass !== null ? Number(lastMuscleMass).toFixed(2) : ''
-                        );
+                        // Only prefill when empty, so values typed before a failed submit survive
+                        if ($('#visceralFatInput').val() === '') {
+                            $('#visceralFatInput').val(
+                                lastVisceralFat !== null ? Number(lastVisceralFat).toFixed(2) : ''
+                            );
+                        }
+                        if ($('#muscleMassInput').val() === '') {
+                            $('#muscleMassInput').val(
+                                lastMuscleMass !== null ? Number(lastMuscleMass).toFixed(2) : ''
+                            );
+                        }
 
                         checkUnchanged('visceralFatInput', 'visceralFatWarning', lastVisceralFat);
                         checkUnchanged('muscleMassInput', 'muscleMassWarning', lastMuscleMass);

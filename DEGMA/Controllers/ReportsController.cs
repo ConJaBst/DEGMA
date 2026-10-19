@@ -13,19 +13,128 @@ namespace DEGMA.Controllers
     {
         private readonly ApplicationDbContext _context;
         private readonly ClinicSettings _clinicSettings;
+        private readonly ReportCheckSettings _checks;
 
-        public ReportsController(ApplicationDbContext context, IOptions<ClinicSettings> clinicSettings)
+        // Reports page shows this many days (that have reports) at a time
+        private const int DaysPerPage = 7;
+        private const int MaxRows = 1500;
+
+        public ReportsController(ApplicationDbContext context, IOptions<ClinicSettings> clinicSettings,
+            IOptions<ReportCheckSettings> checks)
         {
             _context = context;
             _clinicSettings = clinicSettings.Value;
+            _checks = checks.Value;
         }
         
 
         // GET: Reports
-        public async Task<IActionResult> Index()
+        // Review list: every report in a date range, newest first, grouped by day,
+        // with values that look like typos or out-of-range vitals flagged.
+        // With no dates given it shows the most recent days that have reports.
+        public async Task<IActionResult> Index(DateOnly? from, DateOnly? to, bool flagged = false)
         {
-            var applicationDbContext = _context.Reports.Include(r => r.Patient);
-            return View(await applicationDbContext.ToListAsync());
+            var vm = new ReportReviewViewModel { FlaggedOnly = flagged, Checks = _checks, MaxRows = MaxRows };
+
+            var dates = await _context.Reports
+                .Select(r => r.Date)
+                .Distinct()
+                .OrderByDescending(d => d)
+                .ToListAsync();
+
+            if (dates.Count == 0) return View(vm);
+
+            if (from.HasValue && to.HasValue && from > to) (from, to) = (to, from);
+
+            if (!from.HasValue && !to.HasValue) to = dates[0];
+
+            if (!from.HasValue)
+            {
+                // The DaysPerPage report days ending at "to"
+                var window = dates.Where(d => d <= to).Take(DaysPerPage).ToList();
+                from = window.Count > 0 ? window[^1] : to;
+            }
+            else if (!to.HasValue)
+            {
+                // The DaysPerPage report days starting at "from"
+                var window = dates.Where(d => d >= from).OrderBy(d => d).Take(DaysPerPage).ToList();
+                to = window.Count > 0 ? window[^1] : from;
+            }
+
+            vm.From = from;
+            vm.To = to;
+            vm.OlderTo = dates.Where(d => d < from).Select(d => (DateOnly?)d).FirstOrDefault();
+            vm.NewerFrom = dates.Where(d => d > to).Select(d => (DateOnly?)d).LastOrDefault();
+
+            var reports = await _context.Reports
+                .Include(r => r.Patient)
+                .Include(r => r.SideEffects)
+                .Where(r => r.Date >= from && r.Date <= to)
+                .OrderByDescending(r => r.Date)
+                .ThenByDescending(r => r.ReportId)
+                .Take(MaxRows + 1)
+                .AsSplitQuery()
+                .ToListAsync();
+
+            if (reports.Count > MaxRows)
+            {
+                vm.Truncated = true;
+                reports.RemoveAt(reports.Count - 1);
+            }
+
+            // Each patient's earlier reports, to compare against the previous visit
+            var patientIds = reports.Select(r => r.PatientId).Distinct().ToList();
+            var history = (await _context.Reports
+                    .Where(r => patientIds.Contains(r.PatientId) && r.Date <= to)
+                    .Select(r => new { r.ReportId, r.PatientId, r.Date, r.ReportNumber, r.Weight, r.VisceralFat, r.MuscleMass })
+                    .ToListAsync())
+                .GroupBy(h => h.PatientId)
+                .ToDictionary(g => g.Key, g => g
+                    .OrderBy(h => h.Date).ThenBy(h => h.ReportNumber).ThenBy(h => h.ReportId)
+                    .ToList());
+
+            var rows = new List<ReportReviewRow>();
+            foreach (var report in reports)
+            {
+                var earlier = history[report.PatientId]
+                    .TakeWhile(h => h.ReportId != report.ReportId)
+                    .ToList();
+                var previous = earlier.LastOrDefault();
+
+                var row = new ReportReviewRow
+                {
+                    Report = report,
+                    WeightChangeFromStart = previous == null,
+                    WeightChange = report.Weight - (previous?.Weight ?? report.Patient?.StartingWeight ?? report.Weight),
+                    Pulse = _checks.PulseStatus(report.Pulse),
+                    BloodPressure = _checks.BloodPressureStatus(report.SystolicBp, report.DiastolicBp)
+                };
+
+                // Body composition is not measured every visit: compare with the last visit that has a value
+                var lastVisceral = earlier.LastOrDefault(h => h.VisceralFat.HasValue)?.VisceralFat;
+                var lastMuscle = earlier.LastOrDefault(h => h.MuscleMass.HasValue)?.MuscleMass;
+                row.VisceralFatChange = report.VisceralFat.HasValue && lastVisceral.HasValue ? report.VisceralFat - lastVisceral : null;
+                row.MuscleMassChange = report.MuscleMass.HasValue && lastMuscle.HasValue ? report.MuscleMass - lastMuscle : null;
+
+                row.WeightFlag = _checks.IsWeightJump(row.WeightChange);
+                row.VisceralFatRangeFlag = _checks.IsVisceralFatOutOfRange(report.VisceralFat);
+                row.VisceralFatJumpFlag = _checks.IsVisceralFatJump(row.VisceralFatChange);
+                row.MuscleMassRangeFlag = _checks.IsMuscleMassOutOfRange(report.MuscleMass);
+                row.MuscleMassJumpFlag = _checks.IsMuscleMassJump(row.MuscleMassChange);
+
+                rows.Add(row);
+            }
+
+            vm.TotalReports = rows.Count;
+            vm.FlaggedReports = rows.Count(r => r.IsFlagged);
+
+            vm.Days = rows
+                .Where(r => !flagged || r.IsFlagged)
+                .GroupBy(r => r.Report.Date)
+                .Select(g => new ReportReviewDay { Date = g.Key, Rows = g.ToList() })
+                .ToList();
+
+            return View(vm);
         }
 
         // GET: Reports/Details/5
@@ -79,8 +188,8 @@ namespace DEGMA.Controllers
         [ValidateAntiForgeryToken]
         [Authorize(Roles = "Doctor")]
         public async Task<IActionResult> Create(
-            [Bind("ReportId,ReportNumber,WeekNumber,Weight,Dosage,Notes,PatientId,Date,VisceralFat,MuscleMass,BatchNumber")]
-            Report report, int[] selectedSideEffects, int? returnPatientId)
+            [Bind("ReportId,ReportNumber,WeekNumber,Weight,Dosage,Notes,PatientId,Date,VisceralFat,MuscleMass,Pulse,SystolicBp,DiastolicBp,BatchNumber")]
+            Report report, int[] selectedSideEffects, string? otherSideEffects, int? returnPatientId)
         {
             ModelState.Remove("WeightChange");
             ModelState.Remove("Notes");
@@ -109,15 +218,8 @@ namespace DEGMA.Controllers
                         .Count(r => r.Date <= report.Date) + 1;
                 }
 
-                if (selectedSideEffects != null)
-                {
-                    foreach (var sideEffectId in selectedSideEffects)
-                    {
-                        var sideEffect = await _context.SideEffects.FindAsync(sideEffectId);
-                        if (sideEffect != null)
-                            report.SideEffects.Add(sideEffect);
-                    }
-                }
+                report.SideEffects.AddRange(
+                    await ResolveSideEffectsAsync(selectedSideEffects, otherSideEffects));
 
                 _context.Add(report);
                 await _context.SaveChangesAsync();
@@ -140,6 +242,8 @@ namespace DEGMA.Controllers
                 report.PatientId
             );
             ViewBag.AllSideEffects = _context.SideEffects.ToList();
+            ViewBag.SelectedSideEffectIds = selectedSideEffects ?? Array.Empty<int>();
+            ViewBag.OtherSideEffects = otherSideEffects;
             ViewBag.PreselectedPatientId = returnPatientId;
 
             if (returnPatientId.HasValue)
@@ -193,8 +297,8 @@ namespace DEGMA.Controllers
         [ValidateAntiForgeryToken]
         [Authorize(Roles = "Doctor")]
         public async Task<IActionResult> Edit(int id,
-            [Bind("ReportId,ReportNumber,WeekNumber,Weight,Dosage,WeightChange,Notes,PatientId,Date,VisceralFat,MuscleMass,BatchNumber")]
-            Report report, int[] selectedSideEffects)
+            [Bind("ReportId,ReportNumber,WeekNumber,Weight,Dosage,WeightChange,Notes,PatientId,Date,VisceralFat,MuscleMass,Pulse,SystolicBp,DiastolicBp,BatchNumber")]
+            Report report, int[] selectedSideEffects, string? otherSideEffects)
         {
             if (id != report.ReportId) return NotFound();
 
@@ -234,17 +338,14 @@ namespace DEGMA.Controllers
                     existing.Notes = report.Notes;
                     existing.VisceralFat = report.VisceralFat;
                     existing.MuscleMass = report.MuscleMass;
+                    existing.Pulse = report.Pulse;
+                    existing.SystolicBp = report.SystolicBp;
+                    existing.DiastolicBp = report.DiastolicBp;
                     existing.BatchNumber = report.BatchNumber;
 
                     existing.SideEffects.Clear();
-                    if (selectedSideEffects != null)
-                    {
-                        foreach (var seId in selectedSideEffects)
-                        {
-                            var se = await _context.SideEffects.FindAsync(seId);
-                            if (se != null) existing.SideEffects.Add(se);
-                        }
-                    }
+                    existing.SideEffects.AddRange(
+                        await ResolveSideEffectsAsync(selectedSideEffects, otherSideEffects));
 
                     await _context.SaveChangesAsync();
                 }
@@ -258,7 +359,37 @@ namespace DEGMA.Controllers
             }
 
             ViewBag.AllSideEffects = await _context.SideEffects.ToListAsync();
+            ViewBag.SelectedSideEffectIds = selectedSideEffects ?? Array.Empty<int>();
+            ViewBag.OtherSideEffects = otherSideEffects;
             return View(report);
+        }
+
+        // Turns the posted side effect ids plus the free-text "Other" box (comma-separated)
+        // into SideEffect rows. Custom names match existing rows case-insensitively;
+        // unknown names are added to the table so they appear in the dropdown next time.
+        private async Task<List<SideEffect>> ResolveSideEffectsAsync(int[]? selectedIds, string? otherText)
+        {
+            var all = await _context.SideEffects.ToListAsync();
+            var ids = new HashSet<int>(selectedIds ?? Array.Empty<int>());
+            var result = all.Where(s => ids.Contains(s.SideEffectId)).ToList();
+
+            var customNames = (otherText ?? "")
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Distinct(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var name in customNames)
+            {
+                var match = all.FirstOrDefault(s => string.Equals(s.Name.Trim(), name, StringComparison.OrdinalIgnoreCase));
+                if (match == null)
+                {
+                    match = new SideEffect { Name = name };
+                    _context.SideEffects.Add(match);
+                    all.Add(match);
+                }
+                if (!result.Contains(match)) result.Add(match);
+            }
+
+            return result;
         }
 
         // GET: Reports/Delete/5

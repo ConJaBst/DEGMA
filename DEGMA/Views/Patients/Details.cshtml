@@ -3,14 +3,18 @@
 
 @{
     ViewData["Title"] = "Patient Profile";
+    // Wider than the default container so the visit table fits a 1080p screen without cramping
+    ViewData["WideLayout"] = true;
     var currentWeight = Model.Reports
     .OrderByDescending(r => r.Date)
     .FirstOrDefault()?.Weight ?? Model.StartingWeight;
     var totalLost = currentWeight - Model.StartingWeight;
     double? toGoal = Model.GoalWeight.HasValue ? currentWeight - Model.GoalWeight.Value : null;
-    var reportsAscending = Model.Reports.OrderBy(r => r.Date).ToList();
+    var reportsAscending = Model.Reports.OrderBy(r => r.Date).ThenBy(r => r.ReportNumber).ToList();
     bool hasVisceralFat = Model.Reports.Any(r => r.VisceralFat != null);
     bool hasMuscleMass = Model.Reports.Any(r => r.MuscleMass != null);
+    bool hasPulse = Model.Reports.Any(r => r.Pulse != null);
+    bool hasBloodPressure = Model.Reports.Any(r => r.SystolicBp != null || r.DiastolicBp != null);
 
     var muscleMassReport = Model.Reports
         .Where(r => r.MuscleMass.HasValue)
@@ -31,7 +35,7 @@
         visceralFatPercent = (visceralFatReport.VisceralFat!.Value / (decimal)visceralFatReport.Weight) * 100;
 }
 
-<div class="container mt-4">
+<div class="mt-4">
 
     @* Email / error alerts *@
     @if (TempData["EmailSuccess"] != null)
@@ -174,9 +178,12 @@
             <div class="card shadow-sm">
                 <div class="card-body p-0">
                     <div class="p-3 border-bottom border-secondary border-opacity-10">
-                        <h6 class="text-uppercase text-muted small fw-bold mb-0">Treatment History</h6>
+                        <h6 class="text-uppercase text-muted small fw-bold mb-0">
+                            Treatment History
+                            <span class="fw-normal text-lowercase ms-2 opacity-75 history-hint">double-click a visit to see it in full</span>
+                        </h6>
                     </div>
-                    <div class="table-responsive">
+                    <div class="table-responsive" id="historyTable">
                         <table class="table table-hover align-middle mb-0">
                             <thead>
                                 <tr>
@@ -194,6 +201,14 @@
                                     {
                                         <th>Muscle Mass</th>
                                     }
+                                    @if (hasPulse)
+                                    {
+                                        <th>Pulse</th>
+                                    }
+                                    @if (hasBloodPressure)
+                                    {
+                                        <th>BP</th>
+                                    }
                                     <th>Side Effects</th>
                                     <th>Notes</th>
                                     <th class="text-end pe-4">Actions</th>
@@ -202,12 +217,13 @@
                             <tbody>
                                 @foreach (var report in Model.Reports)
                                 {
-                                    <tr>
-                                        <td class="ps-4">Wk @report.WeekNumber</td>
-                                        <td class="text-muted small">
+                                    <tr class="history-row" data-report-id="@report.ReportId"
+                                        title="Double-click to see this visit in full">
+                                        <td class="ps-4 text-nowrap">Wk @report.WeekNumber</td>
+                                        <td class="text-muted small text-nowrap">
                                             @report.Date.ToShortDateString()
                                         </td>
-                                        <td class="fw-bold">@report.Weight kg</td>
+                                        <td class="fw-bold text-nowrap">@report.Weight kg</td>
                                         <td class="@(report.WeightChange <= 0 ? "text-success" : "text-danger")">
                                             @(report.WeightChange > 0 ? "+" : "")@report.WeightChange.ToString("0.00")
                                         </td>
@@ -221,7 +237,7 @@
                                         </td>
                                         @if (hasVisceralFat)
                                         {
-                                            <td class="text-muted">
+                                            <td class="text-muted text-nowrap">
                                                 @(report.VisceralFat.HasValue
                                                     ? report.VisceralFat.Value.ToString("0.00", CultureInfo.InvariantCulture) + " kg"
                                                     : "—")
@@ -229,11 +245,21 @@
                                         }
                                         @if (hasMuscleMass)
                                         {
-                                            <td class="text-muted">
+                                            <td class="text-muted text-nowrap">
                                                 @(report.MuscleMass.HasValue
                                                     ? report.MuscleMass.Value.ToString("0.00", CultureInfo.InvariantCulture) + " kg"
                                                     : "—")
                                             </td>
+                                        }
+                                        @if (hasPulse)
+                                        {
+                                            <td class="text-muted text-nowrap">
+                                                @(report.Pulse.HasValue ? report.Pulse.Value + " bpm" : "—")
+                                            </td>
+                                        }
+                                        @if (hasBloodPressure)
+                                        {
+                                            <td class="text-muted text-nowrap">@report.BloodPressureDisplay</td>
                                         }
                                         <td class="small">
                                             @foreach (var se in report.SideEffects)
@@ -246,7 +272,7 @@
                                         <td class="small text-muted">
                                             @report.Notes
                                         </td>
-                                        <td class="text-end pe-4">
+                                        <td class="text-end pe-4 text-nowrap">
                                             <a asp-controller="Reports"
                                                    asp-action="Edit"
                                                    asp-route-id="@report.ReportId"
@@ -267,6 +293,12 @@
                             </tbody>
                         </table>
                     </div>
+
+                    @* Single-report readouts, shown in place of the table on double-click *@
+                    @for (var i = 0; i < reportsAscending.Count; i++)
+                    {
+                        <partial name="_ReportReadout" model="(reportsAscending[i], i > 0 ? reportsAscending[i - 1] : null)" />
+                    }
                 </div>
             </div>
         </div>
@@ -430,6 +462,38 @@
     }
     }
     }
+    });
+
+    // Treatment history: double-click a visit to swap the table for that visit's readout
+    const historyTable = document.getElementById('historyTable');
+
+    function showReadout(reportId) {
+        const readout = document.getElementById(`readout-${reportId}`);
+        if (!readout) return;
+        historyTable.classList.add('d-none');
+        document.querySelectorAll('.report-readout').forEach(el => el.classList.add('d-none'));
+        readout.classList.remove('d-none');
+        readout.closest('.card').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    function showHistory() {
+        document.querySelectorAll('.report-readout').forEach(el => el.classList.add('d-none'));
+        historyTable.classList.remove('d-none');
+    }
+
+    document.querySelectorAll('tr.history-row').forEach(row => {
+        row.addEventListener('dblclick', e => {
+            if (e.target.closest('a, button, input, form')) return;
+            window.getSelection()?.removeAllRanges();
+            showReadout(row.dataset.reportId);
+        });
+    });
+
+    document.querySelectorAll('.readout-back').forEach(btn => btn.addEventListener('click', showHistory));
+
+    document.addEventListener('keydown', e => {
+        if (e.key === 'Escape' && historyTable.classList.contains('d-none')
+            && !document.querySelector('.modal.show')) showHistory();
     });
 
     // Delete modal

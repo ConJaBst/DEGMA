@@ -45,6 +45,9 @@ builder.Services.Configure<EmailSettings>(
 builder.Services.Configure<BackupSettings>(
     builder.Configuration.GetSection("BackupSettings"));
 
+builder.Services.Configure<ReportCheckSettings>(
+    builder.Configuration.GetSection("ReportChecks"));
+
 // ================================================================
 // APPLICATION SERVICES
 // ================================================================

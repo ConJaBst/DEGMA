@@ -1,8 +1,6 @@
 ﻿using DEGMA.Data;
 using DEGMA.Models;
 using DEGMA.Services;
-using DinkToPdf;
-using DinkToPdf.Contracts;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
@@ -17,17 +15,17 @@ namespace DEGMA.Controllers
     public class PatientsController : Controller
     {
         private readonly ApplicationDbContext _context;
-        private readonly IConverter _pdfConverter;
+        private readonly PdfService _pdfService;
         private readonly ICompositeViewEngine _viewEngine;
         private readonly ITempDataProvider _tempDataProvider;
         private readonly EmailService _emailService;
 
-        public PatientsController(ApplicationDbContext context, IConverter pdfConverter,
+        public PatientsController(ApplicationDbContext context, PdfService pdfService,
             ICompositeViewEngine viewEngine, ITempDataProvider tempDataProvider,
             EmailService emailService)
         {
             _context = context;
-            _pdfConverter = pdfConverter;
+            _pdfService = pdfService;
             _viewEngine = viewEngine;
             _tempDataProvider = tempDataProvider;
             _emailService = emailService;
@@ -262,34 +260,27 @@ namespace DEGMA.Controllers
 
             if (patient == null) return NotFound();
 
-            var html = await RenderViewToString("ReportTemplate", patient);
-
-            var doc = new HtmlToPdfDocument()
+            byte[] pdf;
+            try
             {
-                GlobalSettings = {
-        ColorMode = ColorMode.Color,
-        Orientation = Orientation.Portrait,
-        PaperSize = PaperKind.A4,
-        Margins = new MarginSettings { Top = 10, Bottom = 10, Left = 10, Right = 10 },
-        DPI = 150
-    },
-                Objects = {
-        new ObjectSettings {
-            HtmlContent = html,
-            WebSettings = {
-                DefaultEncoding = "utf-8",
-                EnableIntelligentShrinking = true,
-                PrintMediaType = false
+                pdf = await BuildReportPdfAsync(patient);
             }
-        }
-    }
-            };
+            catch (PdfGenerationException ex)
+            {
+                TempData["EmailError"] = $"Could not create the PDF: {ex.Message}";
+                return RedirectToAction("Details", new { id });
+            }
 
-            var pdf = _pdfConverter.Convert(doc);
             var filename = $"Report_{patient.Surname}_{patient.Firstname}_{DateTime.Now:yyyyMMdd}.pdf";
             return File(pdf, "application/pdf", filename);
         }
 
+
+        private async Task<byte[]> BuildReportPdfAsync(Patient patient)
+        {
+            var html = await RenderViewToString("ReportTemplate", patient);
+            return await _pdfService.HtmlToPdfAsync(html, HttpContext.RequestAborted);
+        }
 
         private async Task<string> RenderViewToString(string viewName, object model)
         {
@@ -344,30 +335,17 @@ namespace DEGMA.Controllers
             if (patient == null) return NotFound();
 
             // Generate the PDF
-            var html = await RenderViewToString("ReportTemplate", patient);
-
-            var doc = new HtmlToPdfDocument()
+            byte[] pdf;
+            try
             {
-                GlobalSettings = {
-            ColorMode   = ColorMode.Color,
-            Orientation = Orientation.Portrait,
-            PaperSize   = PaperKind.A4,
-            Margins     = new MarginSettings { Top = 10, Bottom = 10, Left = 10, Right = 10 },
-            DPI         = 150
-        },
-                Objects = {
-            new ObjectSettings {
-                HtmlContent = html,
-                WebSettings = {
-                    DefaultEncoding       = "utf-8",
-                    EnableIntelligentShrinking = true,
-                    PrintMediaType        = false
-                }
+                pdf = await BuildReportPdfAsync(patient);
             }
-        }
-            };
+            catch (PdfGenerationException ex)
+            {
+                TempData["EmailError"] = $"Could not create the PDF: {ex.Message}";
+                return RedirectToAction("Details", new { id });
+            }
 
-            var pdf = _pdfConverter.Convert(doc);
             var filename = $"Report_{patient.Surname}_{patient.Firstname}_{DateTime.Now:yyyyMMdd}.pdf";
 
             // Send the email

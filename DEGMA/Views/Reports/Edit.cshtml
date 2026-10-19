@@ -82,7 +82,7 @@
                     </div>
                 </div>
 
-                @* Row 3: Visceral Fat + Muscle Mass *@
+                @* Row 3: Visceral Fat, Muscle Mass, Pulse, Blood Pressure *@
                 <div class="row mb-3">
                     <div class="col-md-3">
                         <label asp-for="VisceralFat" class="form-label fw-bold small text-uppercase">Visceral Fat (kg)</label>
@@ -97,6 +97,23 @@
                                value="@(Model.MuscleMass?.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture) ?? "")"
                                placeholder="Optional" />
                         <div id="muscleMassWarning" class="text-muted small mt-1" style="display:none;"></div>
+                    </div>
+                    <div class="col-md-2">
+                        <label asp-for="Pulse" class="form-label fw-bold small text-uppercase">Pulse (bpm)</label>
+                        <input asp-for="Pulse" type="number" min="20" max="250" step="1" class="form-control" />
+                        <span asp-validation-for="Pulse" class="text-danger"></span>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label fw-bold small text-uppercase" for="SystolicBp">Blood Pressure (mmHg)</label>
+                        <div class="input-group">
+                            <input asp-for="SystolicBp" type="number" min="50" max="300" step="1"
+                                   class="form-control" placeholder="Systolic" aria-label="Systolic" />
+                            <span class="input-group-text">/</span>
+                            <input asp-for="DiastolicBp" type="number" min="20" max="200" step="1"
+                                   class="form-control" placeholder="Diastolic" aria-label="Diastolic" />
+                        </div>
+                        <span asp-validation-for="SystolicBp" class="text-danger d-block"></span>
+                        <span asp-validation-for="DiastolicBp" class="text-danger d-block"></span>
                     </div>
                 </div>
 

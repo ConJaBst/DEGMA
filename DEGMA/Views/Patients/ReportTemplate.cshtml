@@ -13,6 +13,8 @@
 
     bool hasVisceralFat = orderedReports.Any(r => r.VisceralFat != null);
     bool hasMuscleMass  = orderedReports.Any(r => r.MuscleMass != null);
+    bool hasPulse       = orderedReports.Any(r => r.Pulse != null);
+    bool hasBloodPressure = orderedReports.Any(r => r.SystolicBp != null || r.DiastolicBp != null);
 
     // --- % of total bodyweight calculations ---
     var muscleMassReport = orderedReports
@@ -449,6 +451,14 @@
                     {
                         <th>Muscle Mass (kg)</th>
                     }
+                    @if (hasPulse)
+                    {
+                        <th>Pulse (bpm)</th>
+                    }
+                    @if (hasBloodPressure)
+                    {
+                        <th>BP (mmHg)</th>
+                    }
                 </tr>
             </thead>
             <tbody>
@@ -468,6 +478,14 @@
                         @if (hasMuscleMass)
                         {
                             <td>@(r.MuscleMass.HasValue ? r.MuscleMass.Value.ToString("0.00", CultureInfo.InvariantCulture) : "—")</td>
+                        }
+                        @if (hasPulse)
+                        {
+                            <td>@(r.Pulse.HasValue ? r.Pulse.Value.ToString(CultureInfo.InvariantCulture) : "—")</td>
+                        }
+                        @if (hasBloodPressure)
+                        {
+                            <td>@r.BloodPressureDisplay</td>
                         }
                     </tr>
                 }

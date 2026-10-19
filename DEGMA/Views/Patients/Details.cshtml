@@ -3,6 +3,8 @@
 
 @{
     ViewData["Title"] = "Patient Profile";
+    // Wider than the default container so the visit table fits a 1080p screen without cramping
+    ViewData["WideLayout"] = true;
     var currentWeight = Model.Reports
     .OrderByDescending(r => r.Date)
     .FirstOrDefault()?.Weight ?? Model.StartingWeight;
@@ -11,6 +13,8 @@
     var reportsAscending = Model.Reports.OrderBy(r => r.Date).ToList();
     bool hasVisceralFat = Model.Reports.Any(r => r.VisceralFat != null);
     bool hasMuscleMass = Model.Reports.Any(r => r.MuscleMass != null);
+    bool hasPulse = Model.Reports.Any(r => r.Pulse != null);
+    bool hasBloodPressure = Model.Reports.Any(r => r.SystolicBp != null || r.DiastolicBp != null);
 
     var muscleMassReport = Model.Reports
         .Where(r => r.MuscleMass.HasValue)
@@ -31,7 +35,7 @@
         visceralFatPercent = (visceralFatReport.VisceralFat!.Value / (decimal)visceralFatReport.Weight) * 100;
 }
 
-<div class="container mt-4">
+<div class="mt-4">
 
     @* Email / error alerts *@
     @if (TempData["EmailSuccess"] != null)
@@ -194,6 +198,14 @@
                                     {
                                         <th>Muscle Mass</th>
                                     }
+                                    @if (hasPulse)
+                                    {
+                                        <th>Pulse</th>
+                                    }
+                                    @if (hasBloodPressure)
+                                    {
+                                        <th>BP</th>
+                                    }
                                     <th>Side Effects</th>
                                     <th>Notes</th>
                                     <th class="text-end pe-4">Actions</th>
@@ -203,11 +215,11 @@
                                 @foreach (var report in Model.Reports)
                                 {
                                     <tr>
-                                        <td class="ps-4">Wk @report.WeekNumber</td>
-                                        <td class="text-muted small">
+                                        <td class="ps-4 text-nowrap">Wk @report.WeekNumber</td>
+                                        <td class="text-muted small text-nowrap">
                                             @report.Date.ToShortDateString()
                                         </td>
-                                        <td class="fw-bold">@report.Weight kg</td>
+                                        <td class="fw-bold text-nowrap">@report.Weight kg</td>
                                         <td class="@(report.WeightChange <= 0 ? "text-success" : "text-danger")">
                                             @(report.WeightChange > 0 ? "+" : "")@report.WeightChange.ToString("0.00")
                                         </td>
@@ -221,7 +233,7 @@
                                         </td>
                                         @if (hasVisceralFat)
                                         {
-                                            <td class="text-muted">
+                                            <td class="text-muted text-nowrap">
                                                 @(report.VisceralFat.HasValue
                                                     ? report.VisceralFat.Value.ToString("0.00", CultureInfo.InvariantCulture) + " kg"
                                                     : "—")
@@ -229,11 +241,21 @@
                                         }
                                         @if (hasMuscleMass)
                                         {
-                                            <td class="text-muted">
+                                            <td class="text-muted text-nowrap">
                                                 @(report.MuscleMass.HasValue
                                                     ? report.MuscleMass.Value.ToString("0.00", CultureInfo.InvariantCulture) + " kg"
                                                     : "—")
                                             </td>
+                                        }
+                                        @if (hasPulse)
+                                        {
+                                            <td class="text-muted text-nowrap">
+                                                @(report.Pulse.HasValue ? report.Pulse.Value + " bpm" : "—")
+                                            </td>
+                                        }
+                                        @if (hasBloodPressure)
+                                        {
+                                            <td class="text-muted text-nowrap">@report.BloodPressureDisplay</td>
                                         }
                                         <td class="small">
                                             @foreach (var se in report.SideEffects)
@@ -246,7 +268,7 @@
                                         <td class="small text-muted">
                                             @report.Notes
                                         </td>
-                                        <td class="text-end pe-4">
+                                        <td class="text-end pe-4 text-nowrap">
                                             <a asp-controller="Reports"
                                                    asp-action="Edit"
                                                    asp-route-id="@report.ReportId"

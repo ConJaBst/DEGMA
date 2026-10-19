@@ -135,3 +135,45 @@ label.text-muted, .small.text-muted {
     color: #dee2e6 !important; /* Even lighter for small text */
     letter-spacing: 0.3px;
 }
+
+/* Side effect multi-select dropdown (Reports Create/Edit) */
+.side-effect-picker .form-select {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.side-effect-picker .dropdown-menu {
+    background-color: var(--bg-card);
+    border: 1px solid var(--border);
+    color: var(--text-main);
+}
+
+.side-effect-picker .se-options {
+    max-height: 260px;
+    overflow-y: auto;
+}
+
+.side-effect-picker .form-check {
+    padding-top: 2px;
+    padding-bottom: 2px;
+}
+
+.side-effect-picker .form-check-input {
+    background-color: var(--bg-input);
+    border-color: #6c757d;
+}
+
+    .side-effect-picker .form-check-input:checked {
+        background-color: var(--accent);
+        border-color: var(--accent);
+    }
+
+.side-effect-picker .form-check-label {
+    color: var(--text-main);
+    cursor: pointer;
+}
+
+.side-effect-picker .dropdown-divider {
+    border-color: var(--border);
+}

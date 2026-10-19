@@ -136,6 +136,23 @@ using (var scope = app.Services.CreateScope())
         await userManager.AddToRoleAsync(doctor, "Doctor");
     }
 
+    // 3a. Environments can pin the doctor's password (e.g. the hosted dev site
+    //     sets SeedUsers:DoctorPassword in appsettings.Dev.json). Unset = unchanged.
+    var doctorPassword = builder.Configuration["SeedUsers:DoctorPassword"];
+    if (!string.IsNullOrEmpty(doctorPassword))
+    {
+        var doctor = await userManager.FindByEmailAsync("doctor@degma.com");
+        if (doctor != null && !await userManager.CheckPasswordAsync(doctor, doctorPassword))
+        {
+            var token = await userManager.GeneratePasswordResetTokenAsync(doctor);
+            var reset = await userManager.ResetPasswordAsync(doctor, token, doctorPassword);
+            if (!reset.Succeeded)
+                services.GetRequiredService<ILogger<Program>>().LogError(
+                    "Could not set the configured doctor password: {Errors}",
+                    string.Join("; ", reset.Errors.Select(e => e.Description)));
+        }
+    }
+
     if (await userManager.FindByEmailAsync("receptionist@degma.com") == null)
     {
         var receptionist = new IdentityUser

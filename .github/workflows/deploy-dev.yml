@@ -1,0 +1,59 @@
+# Deploys the dev branch (master) to an Azure App Service web app on every push.
+#
+# One-time setup (see README "Dev site"):
+#   1. Create a Windows web app on Azure App Service (Free F1 plan, .NET 10 stack).
+#   2. In the web app: Configuration > General settings > turn on
+#      "SCM Basic Auth Publishing Credentials", then Overview > Download publish profile.
+#   3. In GitHub: Settings > Secrets and variables > Actions
+#        - secret   AZURE_WEBAPP_PUBLISH_PROFILE = contents of the publish profile file
+#        - variable AZURE_WEBAPP_NAME            = the web app's name
+#
+# The dev site runs with ASPNETCORE_ENVIRONMENT=Dev (appsettings.Dev.json): the doctor
+# account's password is "Developer1". Each deploy replaces the database with the test
+# database from the repo, so dev data resets on every push.
+
+name: Deploy dev site
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-dev
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: windows-latest
+    env:
+      HAS_PUBLISH_PROFILE: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE != '' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      # Framework-dependent and platform-neutral: the Free F1 plan runs 32-bit workers,
+      # so the self-contained win-x64 single-file build used for the clinic won't run there.
+      - name: Publish
+        run: >
+          dotnet publish DEGMA/DEGMA.csproj -c Release -o publish
+          -p:RuntimeIdentifier= -p:SelfContained=false -p:PublishSingleFile=false
+          -p:PublishReadyToRun=false -p:EnvironmentName=Dev
+
+      - name: Include the test database
+        run: Copy-Item DEGMA/degma.db publish/degma.db
+
+      - name: Deploy to Azure App Service
+        if: env.HAS_PUBLISH_PROFILE == 'true'
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ vars.AZURE_WEBAPP_NAME }}
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+          package: publish
+
+      - name: Skipped deploy
+        if: env.HAS_PUBLISH_PROFILE != 'true'
+        run: echo "::warning::AZURE_WEBAPP_PUBLISH_PROFILE is not set, so the build was not deployed. See the setup steps at the top of deploy-dev.yml."

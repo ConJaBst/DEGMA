@@ -1,5 +1,6 @@
 ﻿using DEGMA.Data;
 using DEGMA.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Globalization;
@@ -8,6 +9,7 @@ using System.Text.Json;
 
 namespace DEGMA.Controllers
 {
+    [Authorize]
     public class ImportController : Controller
     {
         private readonly ApplicationDbContext _context;
@@ -21,6 +23,7 @@ namespace DEGMA.Controllers
         }
 
         // --- UPLOAD: Parse entire CSV, save to temp file, redirect to review ---
+        [Authorize(Roles = "Doctor")]
         [HttpPost]
         public async Task<IActionResult> Upload(IFormFile csvFile)
         {
@@ -104,6 +107,7 @@ namespace DEGMA.Controllers
         }
 
         // --- REVIEW: Paginated review page ---
+        [Authorize(Roles = "Doctor")]
         [HttpGet]
         public async Task<IActionResult> Review(string tempId, int page = 1)
         {
@@ -139,6 +143,7 @@ namespace DEGMA.Controllers
         }
 
         // --- SAVE PAGE: Save edits from current page back to temp file ---
+        [Authorize(Roles = "Doctor")]
         [HttpPost]
         public async Task<IActionResult> SavePage(ImportViewModel model, int nextPage)
         {
@@ -195,6 +200,7 @@ namespace DEGMA.Controllers
                 new { tempId = model.TempFileId, page = nextPage });
         }
 
+        [Authorize(Roles = "Doctor")]
         [HttpGet]
         public async Task<IActionResult> ConfirmAll(string tempId, bool confirmSideEffects)
         {

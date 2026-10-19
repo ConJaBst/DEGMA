@@ -109,7 +109,9 @@ publish.ps1        Release build script
 
 ## Development
 
-- **Branches:** work on a feature branch and open a pull request into `master`.
+- **Branches:**
+  - `production` is the default branch and holds what ships to the clinic.
+  - `Dev` is the dev branch. Work on a feature branch, open a pull request into `Dev`, and promote `Dev` to `production` with a pull request when it's ready to release.
 - **Schema changes:** add an EF Core migration:
   ```bash
   dotnet ef migrations add <Name> --project DEGMA
@@ -119,6 +121,30 @@ publish.ps1        Release build script
   dotnet run --project DEGMA -p:RunWorkingDirectory=<folder with a copy of degma.db>
   ```
 - **Offline:** the clinic PC may be offline, so bundle front-end libraries under `wwwroot/lib` rather than loading them from a CDN.
+
+## Dev site
+
+Every push to `Dev` is deployed to an Azure App Service web app by `.github/workflows/deploy-dev.yml`.
+
+- **Environment:** the dev site runs as `ASPNETCORE_ENVIRONMENT=Dev`, so it uses `appsettings.Dev.json`. It has its own doctor password, set by `SeedUsers:DoctorPassword`:
+
+  | Role | Email | Password |
+  |---|---|---|
+  | Doctor | `doctor@degma.com` | `Developer1` |
+
+- **Data resets:** each deploy replaces the database with the committed test database, so dev data resets on every push.
+- **Not available on the dev site:** PDF reports (there's no Edge on App Service) and email (no SMTP password).
+
+One-time setup:
+
+1. **Create the web app:** in Azure, create a web app with publish *Code*, runtime stack *.NET 10*, operating system *Windows*, and the *Free F1* pricing plan.
+2. **Get the publish profile:** in the web app, open *Configuration > General settings* and turn on *SCM Basic Auth Publishing Credentials*. Then use *Overview > Download publish profile*.
+3. **Connect GitHub:** in GitHub, open *Settings > Secrets and variables > Actions*.
+   - Add a secret `AZURE_WEBAPP_PUBLISH_PROFILE` with the contents of the publish profile file.
+   - Add a variable `AZURE_WEBAPP_NAME` with the web app's name.
+4. **Deploy:** re-run the *Deploy dev site* workflow, or push to `Dev`.
+
+Until the secret is set, the workflow builds the app but skips the deploy, with a warning.
 
 ## Resources
 

@@ -1,0 +1,233 @@
+@model (DEGMA.Models.Report Report, DEGMA.Models.Report? Previous)
+@using System.Globalization
+@using Microsoft.Extensions.Options
+@inject IOptions<DEGMA.Models.ReportCheckSettings> CheckOptions
+
+@{
+    // One report shown on its own, replacing the treatment history table (see Details.cshtml)
+    var r = Model.Report;
+    var prev = Model.Previous;
+    var checks = CheckOptions.Value;
+    var inv = CultureInfo.InvariantCulture;
+
+    decimal? visceralChange = r.VisceralFat.HasValue && prev?.VisceralFat != null ? r.VisceralFat - prev.VisceralFat : null;
+    decimal? muscleChange = r.MuscleMass.HasValue && prev?.MuscleMass != null ? r.MuscleMass - prev.MuscleMass : null;
+    decimal? pulseChange = r.Pulse.HasValue && prev?.Pulse != null ? r.Pulse - prev.Pulse : null;
+    decimal? systolicChange = r.SystolicBp.HasValue && prev?.SystolicBp != null ? r.SystolicBp - prev.SystolicBp : null;
+    decimal? diastolicChange = r.DiastolicBp.HasValue && prev?.DiastolicBp != null ? r.DiastolicBp - prev.DiastolicBp : null;
+
+    var pulseStatus = checks.PulseStatus(r.Pulse);
+    var bpStatus = checks.BloodPressureStatus(r.SystolicBp, r.DiastolicBp);
+    var sinceLabel = prev != null ? "since " + prev.Date.ToString("d MMM", inv) : "since starting weight";
+}
+
+@functions {
+    // good: -1 = going down is good, 1 = going up is good, 0 = neutral
+    private void Delta(decimal? change, string unit, int good, string format = "0.0#")
+    {
+        if (!change.HasValue)
+        {
+            <span class="readout-delta delta-none">no previous value</span>
+            return;
+        }
+        var c = change.Value;
+        var css = c == 0 || good == 0 ? "delta-neutral" : (Math.Sign(c) == good ? "delta-good" : "delta-bad");
+        var arrow = c > 0 ? "▲" : c < 0 ? "▼" : "●";
+        var sign = c > 0 ? "+" : "";
+        <span class="readout-delta @css">@arrow @sign@c.ToString(format, CultureInfo.InvariantCulture)@unit</span>
+    }
+
+    private void Status(VitalStatus status)
+    {
+        switch (status)
+        {
+            case VitalStatus.High: <span class="vital-status vital-high">High</span> break;
+            case VitalStatus.Low: <span class="vital-status vital-low">Low</span> break;
+            case VitalStatus.Normal: <span class="vital-status vital-normal">Normal</span> break;
+        }
+    }
+}
+
+<div class="report-readout d-none p-3 p-md-4" id="readout-@r.ReportId">
+    <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
+        <div>
+            <button type="button" class="btn btn-sm btn-outline-light readout-back mb-3">
+                ← Back to history
+            </button>
+            <h3 class="fw-bold text-white mb-1">@r.Date.ToString("dddd, d MMMM yyyy", inv)</h3>
+            <div class="text-muted">
+                Week @r.WeekNumber <span class="mx-2 opacity-50">•</span> Report #@r.ReportNumber
+            </div>
+        </div>
+        <div class="d-flex gap-2">
+            <a asp-controller="Reports" asp-action="Edit" asp-route-id="@r.ReportId"
+               class="btn btn-sm btn-outline-light">Edit</a>
+            <button type="button" class="btn btn-sm btn-outline-danger"
+                    data-bs-toggle="modal" data-bs-target="#deleteModal"
+                    data-report-id="@r.ReportId" data-week="@r.WeekNumber">
+                Delete
+            </button>
+        </div>
+    </div>
+
+    <div class="row g-3">
+        @* Weight *@
+        <div class="col-sm-6 col-xl-4">
+            <div class="readout-tile h-100">
+                <div class="readout-label">Weight</div>
+                <div class="readout-value">@r.Weight.ToString("0.0#", inv) <small>kg</small></div>
+                @{ Delta((decimal)r.WeightChange, " kg", -1, "0.00"); }
+                <span class="readout-sub ms-1">@sinceLabel</span>
+                @if (checks.IsWeightJump(r.WeightChange))
+                {
+                    <div class="readout-warn mt-2">⚠ Large change — check this entry</div>
+                }
+            </div>
+        </div>
+
+        @* Dosage and batch *@
+        <div class="col-sm-6 col-xl-4">
+            <div class="readout-tile h-100">
+                <div class="readout-label">Dosage</div>
+                <div class="readout-value text-info">@r.Dosage.ToString("0.0#", inv) <small>mg</small></div>
+                @if (prev != null && prev.Dosage != r.Dosage)
+                {
+                    <span class="readout-delta delta-neutral">
+                        @(r.Dosage > prev.Dosage ? "▲" : "▼") changed from @prev.Dosage.ToString("0.0#", inv) mg
+                    </span>
+                }
+                <div class="readout-sub mt-2">
+                    Batch <span class="text-white fw-semibold">@(string.IsNullOrEmpty(r.BatchNumber) ? "—" : r.BatchNumber)</span>
+                </div>
+            </div>
+        </div>
+
+        @* Visceral fat *@
+        <div class="col-sm-6 col-xl-4">
+            <div class="readout-tile h-100">
+                <div class="readout-label">Visceral Fat</div>
+                @if (r.VisceralFat.HasValue)
+                {
+                    <div class="readout-value">@r.VisceralFat.Value.ToString("0.0#", inv) <small>kg</small></div>
+                    Delta(visceralChange, " kg", -1);
+                    if (checks.IsVisceralFatOutOfRange(r.VisceralFat) || checks.IsVisceralFatJump(visceralChange))
+                    {
+                        <div class="readout-warn mt-2">⚠ Unusual value — check this entry</div>
+                    }
+                }
+                else
+                {
+                    <div class="readout-value readout-empty">Not recorded</div>
+                }
+            </div>
+        </div>
+
+        @* Muscle mass *@
+        <div class="col-sm-6 col-xl-4">
+            <div class="readout-tile h-100">
+                <div class="readout-label">Muscle Mass</div>
+                @if (r.MuscleMass.HasValue)
+                {
+                    <div class="readout-value">@r.MuscleMass.Value.ToString("0.0#", inv) <small>kg</small></div>
+                    Delta(muscleChange, " kg", 1);
+                    if (checks.IsMuscleMassOutOfRange(r.MuscleMass) || checks.IsMuscleMassJump(muscleChange))
+                    {
+                        <div class="readout-warn mt-2">⚠ Unusual value — check this entry</div>
+                    }
+                }
+                else
+                {
+                    <div class="readout-value readout-empty">Not recorded</div>
+                }
+            </div>
+        </div>
+
+        @* Pulse *@
+        <div class="col-sm-6 col-xl-4">
+            <div class="readout-tile h-100">
+                <div class="readout-label d-flex align-items-center gap-2">
+                    <svg class="readout-icon text-danger" viewBox="0 0 24 24" aria-hidden="true">
+                        <path fill="currentColor" d="M12 21s-7.4-4.5-9.6-9.2C.8 8.3 3 4.5 6.7 4.5c2.1 0 3.6 1.1 4.5 2.6.9-1.5 2.4-2.6 4.5-2.6 3.7 0 5.9 3.8 4.3 7.3C19.4 16.5 12 21 12 21z" />
+                        <path fill="none" stroke="#1c1f23" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round" d="M4.5 12h4l1.5-3 2.5 6 1.5-3h5.5" />
+                    </svg>
+                    Pulse
+                    @{ Status(pulseStatus); }
+                </div>
+                @if (r.Pulse.HasValue)
+                {
+                    <div class="readout-value">@r.Pulse <small>bpm</small></div>
+                    Delta(pulseChange, " bpm", 0, "0");
+                }
+                else
+                {
+                    <div class="readout-value readout-empty">Not recorded</div>
+                }
+            </div>
+        </div>
+
+        @* Blood pressure *@
+        <div class="col-sm-6 col-xl-4">
+            <div class="readout-tile h-100">
+                <div class="readout-label d-flex align-items-center gap-2">
+                    <svg class="readout-icon text-info" viewBox="0 0 24 24" aria-hidden="true">
+                        <path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M3.5 17a8.5 8.5 0 1 1 17 0" />
+                        <path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M12 17l4.2-5.6" />
+                        <circle cx="12" cy="17" r="1.8" fill="currentColor" />
+                        <path fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" d="M6 13.2l1 .6M12 8.6v1.2M18 13.2l-1 .6" />
+                    </svg>
+                    Blood Pressure
+                    @{ Status(bpStatus); }
+                </div>
+                @if (r.SystolicBp.HasValue || r.DiastolicBp.HasValue)
+                {
+                    <div class="readout-value">@r.BloodPressureDisplay <small>mmHg</small></div>
+                    <div class="d-flex flex-wrap gap-2 align-items-center">
+                        <span class="readout-sub">Sys</span>
+                        @{ Delta(systolicChange, "", 0, "0"); }
+                        <span class="readout-sub ms-1">Dia</span>
+                        @{ Delta(diastolicChange, "", 0, "0"); }
+                    </div>
+                }
+                else
+                {
+                    <div class="readout-value readout-empty">Not recorded</div>
+                }
+            </div>
+        </div>
+
+        @* Side effects *@
+        <div class="col-lg-6">
+            <div class="readout-tile h-100">
+                <div class="readout-label mb-2">Side Effects</div>
+                @if (r.SideEffects.Any())
+                {
+                    <div class="d-flex flex-wrap gap-2">
+                        @foreach (var se in r.SideEffects.OrderBy(s => s.Name))
+                        {
+                            <span class="badge rounded-pill readout-pill">@se.Name</span>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <div class="readout-empty">None reported</div>
+                }
+            </div>
+        </div>
+
+        @* Notes *@
+        <div class="col-lg-6">
+            <div class="readout-tile h-100">
+                <div class="readout-label mb-2">Notes</div>
+                @if (!string.IsNullOrWhiteSpace(r.Notes))
+                {
+                    <div class="readout-notes">@r.Notes</div>
+                }
+                else
+                {
+                    <div class="readout-empty">No notes</div>
+                }
+            </div>
+        </div>
+    </div>
+</div>

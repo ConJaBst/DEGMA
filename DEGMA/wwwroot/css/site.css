@@ -269,3 +269,111 @@ label.text-muted, .small.text-muted {
     color: #fbbf24;
     margin-left: 0.2rem;
 }
+
+/* Patient profile: treatment history rows open a single-report readout on double-click */
+tr.history-row {
+    cursor: pointer;
+}
+
+.history-hint {
+    font-size: 0.75rem;
+    letter-spacing: 0.3px;
+}
+
+.readout-tile {
+    background-color: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1rem 1.25rem;
+}
+
+.readout-label {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-muted);
+    margin-bottom: 0.35rem;
+}
+
+.readout-value {
+    font-size: 1.9rem;
+    font-weight: 700;
+    line-height: 1.2;
+    margin-bottom: 0.4rem;
+}
+
+    .readout-value small {
+        font-size: 0.95rem;
+        font-weight: 500;
+        color: var(--text-muted);
+    }
+
+.readout-empty {
+    font-size: 1rem;
+    font-weight: 500;
+    color: #8a9199;
+}
+
+.readout-sub {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
+.readout-notes {
+    white-space: pre-wrap;
+    line-height: 1.5;
+}
+
+.readout-icon {
+    width: 1.15rem;
+    height: 1.15rem;
+}
+
+.readout-delta {
+    display: inline-block;
+    font-size: 0.82rem;
+    font-weight: 600;
+    padding: 0.15rem 0.6rem;
+    border-radius: 999px;
+}
+
+.delta-good { color: #4ade80; background-color: rgba(74, 222, 128, 0.12); }
+.delta-bad { color: #f87171; background-color: rgba(248, 113, 113, 0.12); }
+.delta-neutral { color: #93c5fd; background-color: rgba(147, 197, 253, 0.12); }
+.delta-none { color: #8a9199; background-color: rgba(255, 255, 255, 0.04); font-weight: 500; }
+
+.readout-warn {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #fbbf24;
+}
+
+.readout-pill {
+    background-color: rgba(61, 139, 253, 0.15);
+    border: 1px solid rgba(61, 139, 253, 0.35);
+    color: #cfe2ff;
+    font-weight: 500;
+    font-size: 0.85rem;
+    padding: 0.4rem 0.75rem;
+}
+
+.vital-status {
+    font-size: 0.65rem;
+    letter-spacing: 0.5px;
+    padding: 0.1rem 0.45rem;
+    border-radius: 4px;
+}
+
+.vital-normal { color: #4ade80; background-color: rgba(74, 222, 128, 0.12); }
+.vital-high { color: #fff; background-color: #dc3545; }
+.vital-low { color: #1c1f23; background-color: #fbbf24; }
+
+/* Patient directory: double-click a row to open the profile */
+tr.patient-row {
+    cursor: pointer;
+}
+
+    tr.patient-row:hover > td:first-child {
+        box-shadow: inset 3px 0 0 var(--accent);
+    }

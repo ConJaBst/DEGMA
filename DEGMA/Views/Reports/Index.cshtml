@@ -1,73 +1,234 @@
-﻿@model IEnumerable<DEGMA.Models.Report>
+﻿@model DEGMA.Models.ReportReviewViewModel
+@using System.Globalization
 
 @{
-    ViewData["Title"] = "Index";
+    ViewData["Title"] = "Reports";
+    ViewData["WideLayout"] = true;
+    var inv = CultureInfo.InvariantCulture;
+    var checks = Model.Checks;
+    string Iso(DateOnly? d) => d?.ToString("yyyy-MM-dd", inv) ?? "";
 }
 
-<h1>Reports</h1>
+@functions {
+    private static string Signed(double v, string format) =>
+        (v > 0 ? "+" : "") + v.ToString(format, CultureInfo.InvariantCulture);
 
-<p>
-    <a asp-action="Create" class="btn btn-success">Create New</a>
-</p>
+    private static string Signed(decimal v, string format) =>
+        (v > 0 ? "+" : "") + v.ToString(format, CultureInfo.InvariantCulture);
 
-<div class="mb-3">
-    <button id="toggleBtn" class="btn btn-primary">Show All</button>
+    private void VitalBadge(VitalStatus status)
+    {
+        if (status == VitalStatus.High) { <span class="flag-badge flag-high">High</span> }
+        else if (status == VitalStatus.Low) { <span class="flag-badge flag-low">Low</span> }
+    }
+}
+
+<div class="d-flex flex-wrap justify-content-between align-items-end gap-3 mb-3">
+    <div>
+        <h2 class="fw-bold mb-1">Reports</h2>
+        <div class="text-muted small">
+            Review entries day by day. Values that look like typos or are out of range are highlighted.
+        </div>
+    </div>
+    <a asp-action="Create" class="btn btn-primary btn-sm">+ Create New</a>
 </div>
 
-<div class="table-responsive">
-    <table class="table table-hover">
-        <thead>
-            <tr>
-                <th>@Html.DisplayNameFor(model => model.ReportNumber)</th>
-                <th>@Html.DisplayNameFor(model => model.WeekNumber)</th>
-                <th>@Html.DisplayNameFor(model => model.Weight)</th>
-                <th>@Html.DisplayNameFor(model => model.Dosage)</th>
-                <th>@Html.DisplayNameFor(model => model.WeightChange)</th>
-                <th>@Html.DisplayNameFor(model => model.Notes)</th>
-                <th>Patient</th>
-                <th></th>
-            </tr>
-        </thead>
-        <tbody id="reportTable">
-            @{
-                int index = 0;
-            }
-            @foreach (var item in Model)
+@* Date range filter *@
+<form asp-action="Index" method="get" class="review-filter card p-3 mb-3">
+    <div class="d-flex flex-wrap align-items-end gap-3">
+        <div>
+            <label class="text-muted small d-block" for="from">From</label>
+            <input type="date" id="from" name="from" value="@Iso(Model.From)" class="form-control form-control-sm" />
+        </div>
+        <div>
+            <label class="text-muted small d-block" for="to">To</label>
+            <input type="date" id="to" name="to" value="@Iso(Model.To)" class="form-control form-control-sm" />
+        </div>
+        <div class="form-check mb-1">
+            <input class="form-check-input" type="checkbox" id="flagged" name="flagged" value="true" @(Model.FlaggedOnly ? "checked" : "") />
+            <label class="form-check-label small" for="flagged">Only flagged</label>
+        </div>
+        <button type="submit" class="btn btn-sm btn-outline-primary">Show</button>
+        <a asp-action="Index" class="btn btn-sm btn-outline-secondary">Latest</a>
+
+        <div class="ms-auto d-flex gap-2">
+            @if (Model.OlderTo.HasValue)
             {
-                <tr class="report-row @(index >= 10 ? "d-none extra-row" : "")">
-                    <td>@item.ReportNumber</td>
-                    <td>@item.WeekNumber</td>
-                    <td>@item.Weight.ToString("0.00")</td>
-                    <td>@item.Dosage.ToString("0.00")</td>
-                    <td>@item.WeightChange.ToString("0.00")</td>
-                    <td>@item.Notes</td>
-                    <td>@(item.Patient?.Firstname + " " + item.Patient?.Surname)</td>
-                    <td>
-                        <a asp-action="Edit" asp-route-id="@item.ReportId">Edit</a> |
-                        <a asp-action="Details" asp-route-id="@item.ReportId">Details</a> |
-                        <a asp-action="Delete" asp-route-id="@item.ReportId">Delete</a>
-                    </td>
-                </tr>
-                index++;
+                <a asp-action="Index" asp-route-to="@Iso(Model.OlderTo)" asp-route-flagged="@(Model.FlaggedOnly ? "true" : null)"
+                   class="btn btn-sm btn-outline-light">← Older days</a>
             }
-        </tbody>
-    </table>
-</div>
+            @if (Model.NewerFrom.HasValue)
+            {
+                <a asp-action="Index" asp-route-from="@Iso(Model.NewerFrom)" asp-route-flagged="@(Model.FlaggedOnly ? "true" : null)"
+                   class="btn btn-sm btn-outline-light">Newer days →</a>
+            }
+        </div>
+    </div>
+    <div class="small text-muted mt-2">
+        @Model.TotalReports report@(Model.TotalReports == 1 ? "" : "s")
+        @if (Model.From.HasValue)
+        {
+            <text>from @Model.From.Value.ToString("d MMM yyyy", inv) to @Model.To!.Value.ToString("d MMM yyyy", inv)</text>
+        }
+        <span class="mx-1">•</span>
+        <span class="@(Model.FlaggedReports > 0 ? "text-warning fw-semibold" : "")">@Model.FlaggedReports flagged</span>
+        <span class="mx-1">•</span>
+        Limits: weight change &gt; @checks.WeightChangeKg.ToString(inv) kg,
+        pulse @checks.PulseLow–@checks.PulseHigh bpm,
+        BP @checks.SystolicLow/@checks.DiastolicLow – &lt;@checks.SystolicHigh/@checks.DiastolicHigh
+    </div>
+</form>
 
-@section Scripts {
-    <script>
-        let expanded = false;
+@if (Model.Truncated)
+{
+    <div class="alert alert-warning py-2 small">
+        Only the newest @Model.MaxRows reports in this range are shown. Pick a shorter range to see the rest.
+    </div>
+}
 
-        document.getElementById("toggleBtn").addEventListener("click", function () {
-            const extraRows = document.querySelectorAll(".extra-row");
-
-            expanded = !expanded;
-
-            extraRows.forEach(row => {
-                row.classList.toggle("d-none", !expanded);
-            });
-
-            this.textContent = expanded ? "Show Less" : "Show All";
-        });
-    </script>
+@if (!Model.Days.Any())
+{
+    <div class="card p-4 text-center text-muted">
+        @(Model.FlaggedOnly && Model.TotalReports > 0 ? "Nothing flagged in this range." : "No reports in this range.")
+    </div>
+}
+else
+{
+    <div class="table-responsive">
+        <table class="table review-table align-middle mb-0">
+            <thead>
+                <tr>
+                    <th class="ps-3">Patient</th>
+                    <th>Date</th>
+                    <th>Wk</th>
+                    <th>#</th>
+                    <th class="text-end">Weight</th>
+                    <th class="text-end">Change</th>
+                    <th class="text-end">Dosage</th>
+                    <th>Batch</th>
+                    <th class="text-end">Visc. Fat</th>
+                    <th class="text-end">Muscle</th>
+                    <th class="text-end">Pulse</th>
+                    <th class="text-end">BP</th>
+                    <th>Side Effects</th>
+                    <th>Notes</th>
+                    <th class="text-end pe-3"></th>
+                </tr>
+            </thead>
+            @foreach (var day in Model.Days)
+            {
+                <tbody>
+                    <tr class="review-day">
+                        <td colspan="15" class="ps-3">
+                            <span class="fw-bold">@day.Date.ToString("dddd, d MMMM yyyy", inv)</span>
+                            <span class="text-muted ms-2">@day.Rows.Count report@(day.Rows.Count == 1 ? "" : "s")</span>
+                            @if (day.FlaggedCount > 0)
+                            {
+                                <span class="flag-badge flag-warn ms-2">@day.FlaggedCount flagged</span>
+                            }
+                        </td>
+                    </tr>
+                    @foreach (var row in day.Rows)
+                    {
+                        var r = row.Report;
+                        <tr class="@(row.IsFlagged ? "review-flagged" : "")">
+                            <td class="ps-3 text-nowrap">
+                                <a asp-controller="Patients" asp-action="Details" asp-route-id="@r.PatientId"
+                                   class="fw-semibold text-decoration-none">@r.Patient?.Firstname @r.Patient?.Surname</a>
+                            </td>
+                            <td class="text-nowrap text-muted">@r.Date.ToString("yyyy-MM-dd", inv)</td>
+                            <td>@r.WeekNumber</td>
+                            <td>@r.ReportNumber</td>
+                            <td class="text-end text-nowrap fw-semibold">@r.Weight.ToString("0.0#", inv)</td>
+                            <td class="text-end text-nowrap" title="@(row.WeightChangeFromStart ? "Since starting weight" : "Since previous report")">
+                                @if (row.WeightFlag)
+                                {
+                                    <span class="flag-badge flag-high">@(row.WeightChange > 0 ? "▲" : "▼") @Signed(row.WeightChange, "0.00")</span>
+                                }
+                                else
+                                {
+                                    <span class="@(row.WeightChange <= 0 ? "delta-down" : "delta-up")">@Signed(row.WeightChange, "0.00")</span>
+                                }
+                                @if (row.WeightChangeFromStart)
+                                {
+                                    <span class="text-muted small">(start)</span>
+                                }
+                            </td>
+                            <td class="text-end text-nowrap">@r.Dosage.ToString("0.0#", inv) mg</td>
+                            <td class="text-nowrap text-muted">@(string.IsNullOrEmpty(r.BatchNumber) ? "—" : r.BatchNumber)</td>
+                            <td class="text-end text-nowrap">
+                                @if (r.VisceralFat.HasValue)
+                                {
+                                    var bad = row.VisceralFatRangeFlag || row.VisceralFatJumpFlag;
+                                    <span class="@(bad ? "flag-badge flag-high" : "")"
+                                          title="@(row.VisceralFatRangeFlag ? $"Outside {checks.VisceralFatMin.ToString(inv)}–{checks.VisceralFatMax.ToString(inv)} kg. " : "")@(row.VisceralFatChange.HasValue ? "Change " + Signed(row.VisceralFatChange.Value, "0.0#") + " kg" : "")">
+                                        @r.VisceralFat.Value.ToString("0.0#", inv)
+                                    </span>
+                                    @if (row.VisceralFatJumpFlag)
+                                    {
+                                        <span class="flag-note">@Signed(row.VisceralFatChange!.Value, "0.0#")</span>
+                                    }
+                                }
+                                else
+                                {
+                                    <span class="text-muted">—</span>
+                                }
+                            </td>
+                            <td class="text-end text-nowrap">
+                                @if (r.MuscleMass.HasValue)
+                                {
+                                    var bad = row.MuscleMassRangeFlag || row.MuscleMassJumpFlag;
+                                    <span class="@(bad ? "flag-badge flag-high" : "")"
+                                          title="@(row.MuscleMassRangeFlag ? $"Outside {checks.MuscleMassMin.ToString(inv)}–{checks.MuscleMassMax.ToString(inv)} kg. " : "")@(row.MuscleMassChange.HasValue ? "Change " + Signed(row.MuscleMassChange.Value, "0.0#") + " kg" : "")">
+                                        @r.MuscleMass.Value.ToString("0.0#", inv)
+                                    </span>
+                                    @if (row.MuscleMassJumpFlag)
+                                    {
+                                        <span class="flag-note">@Signed(row.MuscleMassChange!.Value, "0.0#")</span>
+                                    }
+                                }
+                                else
+                                {
+                                    <span class="text-muted">—</span>
+                                }
+                            </td>
+                            <td class="text-end text-nowrap">
+                                @if (r.Pulse.HasValue)
+                                {
+                                    <span class="@(row.Pulse is VitalStatus.High or VitalStatus.Low ? "fw-bold" : "")">@r.Pulse</span>
+                                    VitalBadge(row.Pulse);
+                                }
+                                else
+                                {
+                                    <span class="text-muted">—</span>
+                                }
+                            </td>
+                            <td class="text-end text-nowrap">
+                                @if (r.SystolicBp.HasValue || r.DiastolicBp.HasValue)
+                                {
+                                    <span class="@(row.BloodPressure is VitalStatus.High or VitalStatus.Low ? "fw-bold" : "")">@r.BloodPressureDisplay</span>
+                                    VitalBadge(row.BloodPressure);
+                                }
+                                else
+                                {
+                                    <span class="text-muted">—</span>
+                                }
+                            </td>
+                            <td class="review-wrap">
+                                @foreach (var se in r.SideEffects.OrderBy(s => s.Name))
+                                {
+                                    <span class="review-pill">@se.Name</span>
+                                }
+                            </td>
+                            <td class="review-notes text-muted" title="@r.Notes">@r.Notes</td>
+                            <td class="text-end text-nowrap pe-3">
+                                <a asp-action="Edit" asp-route-id="@r.ReportId" class="btn btn-sm btn-outline-light border-0 py-0">Edit</a>
+                                <a asp-action="Delete" asp-route-id="@r.ReportId" class="btn btn-sm btn-outline-danger border-0 py-0">Delete</a>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            }
+        </table>
+    </div>
 }

@@ -368,3 +368,6 @@ DEGMA/degma.db-wal
 
 # Staged CSV imports (contain patient data)
 DEGMA/App_Data/ImportTemp/
+
+# The clinic's own settings (SMTP password etc.); created on first start, never committed
+DEGMA/appsettings.json

@@ -31,14 +31,15 @@ Built with ASP.NET Core MVC (.NET 10), Entity Framework Core and SQLite.
 
 ## Getting started
 
-### Run a release
+### Install or update a release
 
-1. Download `DEGMA.exe`, `wwwroot.zip` and `appsettings.json` from the latest [release](https://github.com/ConJaBst/DEGMA/releases/latest).
-2. Put them in one folder and extract `wwwroot.zip` there.
-3. Edit `appsettings.json` (see [Configuration](#configuration)).
-4. Run `DEGMA.exe` **from that folder**, then open http://localhost:5000.
+Each [release](https://github.com/ConJaBst/DEGMA/releases/latest) is one zip, `DEGMA-<version>-win-x64.zip`. The same zip is used for a new install and for an update.
 
-The database (`degma.db`) is created in the working directory on first start. The schema is upgraded automatically when a new version starts. **Back up before upgrading.**
+1. **Close DEGMA** if it's running, because Windows can't replace a running `DEGMA.exe`. When updating, take a backup first.
+2. **Extract the zip into the install folder**, replacing files when asked. It contains only `DEGMA.exe`, `appsettings.Defaults.json` and `wwwroot`, so it never touches the database (`degma.db`) or the clinic's settings (`appsettings.json`).
+3. **Run `DEGMA.exe` from that folder**, then open http://localhost:5000.
+
+On a new install, the first start creates `degma.db` and a starter `appsettings.json`. Fill in the SMTP details there (see [Configuration](#configuration)) and restart DEGMA. On an update, the database schema is upgraded automatically.
 
 ### Run from source
 
@@ -63,7 +64,10 @@ These are created on first start:
 
 ## Configuration
 
-Settings live in `appsettings.json` next to the executable.
+Settings come from two files next to the executable:
+
+- **`appsettings.Defaults.json`:** the shipped defaults. Every update replaces it, so don't edit it.
+- **`appsettings.json`:** the clinic's own settings. Anything set here overrides the defaults. It's created on first start with the `EmailSettings` and `ClinicSettings` sections. Add any other section below to change it. Updates never ship this file, it's never published into a build, and it's git-ignored.
 
 | Section | Purpose |
 |---|---|
@@ -73,7 +77,7 @@ Settings live in `appsettings.json` next to the executable.
 | `ReportChecks` | Limits that flag values on the Reports page and visit readout: weight change, visceral fat and muscle mass ranges and jumps, and pulse and BP High/Low. Optional; the defaults are built in. |
 | `Pdf:EdgePath` | Optional. The full path to `msedge.exe`, if Edge isn't in its standard location. |
 
-> **Never commit a real `SmtpPassword`.** The committed `appsettings.json` must keep it blank.
+> Keep `SmtpPassword` in `appsettings.json` only. It's git-ignored, so the real password never reaches the repo. `appsettings.Defaults.json` keeps it blank.
 
 ## CSV import
 
@@ -88,10 +92,10 @@ From the dashboard, upload a CSV with a header row and these columns in order:
 ## Building a release
 
 ```powershell
-.\publish.ps1
+.\publish.ps1 -Version v3.3
 ```
 
-This builds a self-contained, single-file `DEGMA.exe` with the `FolderProfile` publish profile, into `DEGMA\bin\Release\net10.0\publish\`. Attach `DEGMA.exe`, a zip of the `wwwroot` folder and `appsettings.json` (with a blank `SmtpPassword`) to a GitHub release.
+This builds a self-contained, single-file `DEGMA.exe` with the `FolderProfile` publish profile into `DEGMA\bin\Release\net10.0\publish\`. It then packs `DEGMA\bin\Release\net10.0\DEGMA-v3.3-win-x64.zip`, containing `DEGMA.exe`, `appsettings.Defaults.json` and `wwwroot`. Attach that zip to the GitHub release.
 
 ## Project structure
 

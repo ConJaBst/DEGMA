@@ -7,6 +7,10 @@ using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Shipped defaults (appsettings.Defaults.json) under the clinic's own appsettings.json,
+// which is created on first start and never shipped in a release.
+SettingsFiles.AddDefaults(builder);
+
 // ================================================================
 // DATABASE
 // ================================================================

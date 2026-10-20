@@ -18,8 +18,7 @@ namespace DEGMA.Data
         {
             base.OnModelCreating(builder);
 
-            // [Required] on these is for form validation only; reports recorded
-            // before vitals were tracked have no values, so keep the columns nullable.
+            // Vitals are optional, and reports recorded before they were tracked have none.
             builder.Entity<Report>().Property(r => r.Pulse).IsRequired(false);
             builder.Entity<Report>().Property(r => r.SystolicBp).IsRequired(false);
             builder.Entity<Report>().Property(r => r.DiastolicBp).IsRequired(false);

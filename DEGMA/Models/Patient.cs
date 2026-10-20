@@ -17,7 +17,7 @@ namespace DEGMA.Models
 
         public List<Report> Reports { get; set; } = new List<Report>();
     }
-    public class Report
+    public class Report : IValidatableObject
     {
         public int ReportId { get; set; }
         public int ReportNumber { get; set; }
@@ -34,25 +34,30 @@ namespace DEGMA.Models
         public decimal? VisceralFat { get; set; }
         public decimal? MuscleMass { get; set; }
 
-        // Vitals are required on the Create/Edit forms, but the columns stay
-        // nullable (see ApplicationDbContext) because older reports have none.
-        [Required(ErrorMessage = "Pulse is required.")]
+        // Vitals are optional. If blood pressure is entered, both numbers are needed
+        // (see Validate below).
         [Range(20, 250, ErrorMessage = "Pulse must be between 20 and 250 bpm.")]
         [Display(Name = "Pulse (bpm)")]
         public int? Pulse { get; set; }
 
-        [Required(ErrorMessage = "Systolic BP is required.")]
         [Range(50, 300, ErrorMessage = "Systolic BP must be between 50 and 300 mmHg.")]
         [Display(Name = "Systolic BP")]
         public int? SystolicBp { get; set; }
 
-        [Required(ErrorMessage = "Diastolic BP is required.")]
         [Range(20, 200, ErrorMessage = "Diastolic BP must be between 20 and 200 mmHg.")]
         [Display(Name = "Diastolic BP")]
         public int? DiastolicBp { get; set; }
 
         public string BloodPressureDisplay =>
             SystolicBp.HasValue && DiastolicBp.HasValue ? $"{SystolicBp}/{DiastolicBp}" : "—";
+
+        public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
+        {
+            if (SystolicBp.HasValue && !DiastolicBp.HasValue)
+                yield return new ValidationResult("Enter the diastolic BP too, or leave both blank.", new[] { nameof(DiastolicBp) });
+            if (DiastolicBp.HasValue && !SystolicBp.HasValue)
+                yield return new ValidationResult("Enter the systolic BP too, or leave both blank.", new[] { nameof(SystolicBp) });
+        }
 
         public string? BatchNumber { get; set; }
     }

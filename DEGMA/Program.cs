@@ -49,6 +49,9 @@ builder.Services.Configure<EmailSettings>(
 builder.Services.Configure<BackupSettings>(
     builder.Configuration.GetSection("BackupSettings"));
 
+builder.Services.Configure<UpdateSettings>(
+    builder.Configuration.GetSection("Updates"));
+
 builder.Services.Configure<ReportCheckSettings>(
     builder.Configuration.GetSection("ReportChecks"));
 
@@ -65,6 +68,10 @@ builder.Services.AddTransient<EmailService>();
 // Database backups — daily scheduled run plus manual trigger
 builder.Services.AddSingleton<BackupService>();
 builder.Services.AddHostedService<BackupScheduler>();
+
+// In-app updates from GitHub releases
+UpdateService.AddHttpClients(builder.Services);
+builder.Services.AddSingleton<UpdateService>();
 
 // Session (used by CSV import)
 builder.Services.AddDistributedMemoryCache();

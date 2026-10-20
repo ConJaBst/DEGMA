@@ -6,6 +6,9 @@
 		<ImplicitUsings>enable</ImplicitUsings>
 		<OutputType>Exe</OutputType>
 
+		<!-- Release builds get their version from publish.ps1 -Version; 0.0.0 marks a dev build. -->
+		<Version>0.0.0</Version>
+
 		<NoWarn>NU1901</NoWarn>
 
 		<!-- Single File Settings -->

@@ -6,10 +6,13 @@
 *@
 @model IEnumerable<int>
 @{
+    var selected = new HashSet<int>(Model ?? Enumerable.Empty<int>());
+    // Only the dictionary's side effects are offered, plus any older or "Other" ones
+    // already on the report being edited, so they can still be seen and unticked.
     var allSideEffects = ((IEnumerable<DEGMA.Models.SideEffect>)ViewBag.AllSideEffects)
+        .Where(s => DEGMA.Data.SideEffectDictionary.Contains(s.Name) || selected.Contains(s.SideEffectId))
         .OrderBy(s => s.Name, StringComparer.OrdinalIgnoreCase)
         .ToList();
-    var selected = new HashSet<int>(Model ?? Enumerable.Empty<int>());
     var otherText = ViewBag.OtherSideEffects as string ?? "";
     var otherChecked = !string.IsNullOrWhiteSpace(otherText);
 }

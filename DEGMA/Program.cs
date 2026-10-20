@@ -168,7 +168,8 @@ using (var scope = app.Services.CreateScope())
         await userManager.AddToRoleAsync(receptionist, "Receptionist");
     }
 
-    // 3b. Seed the standard side effect dictionary (adds missing names only)
+    // 3b. Keep the side effect list to the dictionary: merge repeats, add missing entries,
+    //     drop unused extras (see SideEffectDictionary)
     await SideEffectDictionary.SeedAsync(services.GetRequiredService<ApplicationDbContext>());
 
     // 4. Backfill batch number on any reports that don't have one

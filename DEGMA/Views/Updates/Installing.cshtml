@@ -1,0 +1,80 @@
+@model DEGMA.Services.InstallStartResult
+@{
+    ViewData["Title"] = "Updating";
+}
+
+<div class="d-flex justify-content-center mt-5">
+    <div class="card shadow-sm border-0" style="max-width: 560px; width: 100%;">
+        <div class="card-body p-4 text-center">
+            <div id="updWorking">
+                <div class="spinner-border text-info mb-3" role="status"></div>
+                <h4 class="fw-bold">Updating DEGMA to v@(Model.To)</h4>
+                <p class="text-muted mb-1">
+                    A backup was taken and the update is downloaded. DEGMA is now closing,
+                    installing the new version and starting again.
+                </p>
+                <p class="text-muted small mb-0">This usually takes under a minute. Please keep this page open.</p>
+            </div>
+
+            <div id="updDone" class="d-none">
+                <h4 class="fw-bold text-success">DEGMA was updated to v<span id="updVersion"></span></h4>
+                <p class="text-muted">The update is installed and DEGMA is running again.</p>
+                <a href="/" class="btn btn-success">Continue</a>
+            </div>
+
+            <div id="updFailed" class="d-none">
+                <h4 class="fw-bold text-danger">The update didn't install</h4>
+                <p class="text-muted" id="updError"></p>
+                <p class="text-muted small">DEGMA is still running v@(Model.From). Your data and the pre-update backup are safe.</p>
+                <a href="/" class="btn btn-outline-light">Back to DEGMA</a>
+            </div>
+
+            <div id="updSlow" class="d-none mt-3">
+                <p class="text-warning small mb-0">
+                    This is taking longer than expected. If DEGMA doesn't come back, start DEGMA.exe again
+                    from its folder.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        (function () {
+            const from = @Json.Serialize(Model.From);
+            const started = Date.now();
+            let sawDowntime = false;
+
+            function show(id) {
+                ['updWorking', 'updDone', 'updFailed'].forEach(x => document.getElementById(x).classList.toggle('d-none', x !== id));
+            }
+
+            async function poll() {
+                try {
+                    const res = await fetch('/Updates/Status', { cache: 'no-store' });
+                    const data = await res.json();
+                    // Until DEGMA has actually restarted, the old process may still answer.
+                    if (data.notice || data.version !== from || sawDowntime) {
+                        if (data.notice && !data.notice.success) {
+                            document.getElementById('updError').textContent = data.notice.error || 'Unknown error.';
+                            show('updFailed');
+                            return;
+                        }
+                        if (data.version !== from) {
+                            document.getElementById('updVersion').textContent = data.version;
+                            show('updDone');
+                            return;
+                        }
+                    }
+                } catch {
+                    sawDowntime = true; // DEGMA is restarting
+                }
+                if (Date.now() - started > 120000)
+                    document.getElementById('updSlow').classList.remove('d-none');
+                setTimeout(poll, 2000);
+            }
+            setTimeout(poll, 3000);
+        })();
+    </script>
+}

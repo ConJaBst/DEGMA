@@ -20,7 +20,11 @@ if (-not (Test-Path $pubxml)) { throw "Publish profile not found: $pubxml" }
 # Start clean so files from older builds can't end up in the zip
 if (Test-Path $out) { Remove-Item -Recurse -Force $out }
 
-dotnet publish $project -c Release -p:PublishProfile=FolderProfile "-p:PublishDir=$out\\"
+# -Version also stamps the exe, so the in-app updater knows which version is installed.
+$versionArgs = @()
+if ($Version) { $versionArgs = @("-p:Version=$($Version.TrimStart('v', 'V'))") }
+
+dotnet publish $project -c Release -p:PublishProfile=FolderProfile "-p:PublishDir=$out\\" @versionArgs
 if ($LASTEXITCODE -ne 0) { throw "Publish failed (exit code $LASTEXITCODE)" }
 
 $exe = Join-Path $out 'DEGMA.exe'

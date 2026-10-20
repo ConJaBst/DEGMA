@@ -83,7 +83,7 @@ namespace DEGMA.Controllers
                 {
                     foreach (var name in row.SideEffects.Split('|'))
                     {
-                        var trimmed = name.Trim();
+                        var trimmed = SideEffectDictionary.Canonical(name);
                         if (!string.IsNullOrEmpty(trimmed) &&
                             !existingSideEffectNames.Contains(trimmed))
                             detectedNewSideEffects.Add(trimmed);
@@ -217,7 +217,7 @@ namespace DEGMA.Controllers
             // Create new side effects if confirmed
             if (confirmSideEffects && tempData.NewSideEffectsToCreate.Any())
             {
-                foreach (var name in tempData.NewSideEffectsToCreate)
+                foreach (var name in tempData.NewSideEffectsToCreate.Select(SideEffectDictionary.Canonical))
                 {
                     if (!masterSideEffects.Any(s =>
                         s.Name.Equals(name, StringComparison.OrdinalIgnoreCase)))
@@ -358,10 +358,11 @@ namespace DEGMA.Controllers
                         foreach (var name in row.SideEffects.Split('|',
                             StringSplitOptions.RemoveEmptyEntries))
                         {
+                            var canonical = SideEffectDictionary.Canonical(name);
                             var se = masterSideEffects.FirstOrDefault(s =>
-                                s.Name.Trim().Equals(name.Trim(),
+                                s.Name.Trim().Equals(canonical,
                                     StringComparison.OrdinalIgnoreCase));
-                            if (se != null) report.SideEffects.Add(se);
+                            if (se != null && !report.SideEffects.Contains(se)) report.SideEffects.Add(se);
                         }
                     }
 

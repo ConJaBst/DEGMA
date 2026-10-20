@@ -34,4 +34,9 @@
     <PackageReference Include="SQLitePCLRaw.lib.e_sqlite3" Version="2.1.12" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- The clinic's own settings (and a developer's local SMTP password) never go into a build. -->
+    <Content Update="appsettings.json" CopyToOutputDirectory="Never" CopyToPublishDirectory="Never" />
+  </ItemGroup>
+
 </Project>

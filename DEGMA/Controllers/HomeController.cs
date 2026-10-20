@@ -1,11 +1,10 @@
 using DEGMA.Data;
 using DEGMA.Models;
+using DEGMA.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Diagnostics;
-using System.Text.Json;
-using System.Text.Json.Nodes;
 
 namespace DEGMA.Controllers
 {
@@ -176,14 +175,7 @@ namespace DEGMA.Controllers
         [Authorize(Roles = "Doctor")]
         public IActionResult UpdateBatchNumber(string batchNumber)
         {
-            var appSettingsPath = Path.Combine(_env.ContentRootPath, "appsettings.json");
-            var json = System.IO.File.ReadAllText(appSettingsPath);
-            var node = JsonNode.Parse(json)!;
-
-            node["ClinicSettings"]!["CurrentBatchNumber"] = batchNumber;
-
-            System.IO.File.WriteAllText(appSettingsPath,
-                node.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
+            SettingsFiles.SetLocalValue(_env.ContentRootPath, "ClinicSettings", "CurrentBatchNumber", batchNumber);
 
             // Reload configuration so it takes effect immediately
             _configuration["ClinicSettings:CurrentBatchNumber"] = batchNumber;

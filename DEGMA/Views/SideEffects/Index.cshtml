@@ -1,37 +1,100 @@
 ﻿@model IEnumerable<DEGMA.Models.SideEffect>
+@using DEGMA.Data
 
 @{
-    ViewData["Title"] = "Index";
+    ViewData["Title"] = "Side Effects";
+    var standard = Model.Where(s => SideEffectDictionary.Contains(s.Name))
+        .OrderBy(s => Array.FindIndex(SideEffectDictionary.Names, n => string.Equals(n, s.Name, StringComparison.OrdinalIgnoreCase)))
+        .ToList();
+    var extras = Model.Where(s => !SideEffectDictionary.Contains(s.Name))
+        .OrderByDescending(s => s.Reports.Count).ThenBy(s => s.Name)
+        .ToList();
+    var isDoctor = User.IsInRole("Doctor");
 }
 
-<h1>Index</h1>
+<div class="container">
+    <div class="mb-4">
+        <h2 class="fw-bold">Side Effects</h2>
+        <p class="text-muted mb-0">
+            The report form offers these @SideEffectDictionary.Names.Length standard side effects.
+            Anything else is recorded with the form's <strong>Other</strong> box.
+        </p>
+    </div>
 
-<p>
-    <a asp-action="Create">Create New</a>
-</p>
-<div class="table-responsive">
-    <table class="table table-hover">
-    <thead>
-        <tr>
-            <th>
-                @Html.DisplayNameFor(model => model.Name)
-            </th>
-            <th></th>
-        </tr>
-    </thead>
-    <tbody>
-@foreach (var item in Model) {
-        <tr>
-            <td>
-                @Html.DisplayFor(modelItem => item.Name)
-            </td>
-            <td>
-                <a asp-action="Edit" asp-route-id="@item.SideEffectId">Edit</a> |
-                <a asp-action="Details" asp-route-id="@item.SideEffectId">Details</a> |
-                <a asp-action="Delete" asp-route-id="@item.SideEffectId">Delete</a>
-            </td>
-        </tr>
-}
-    </tbody>
-</table>
+    @if (TempData["SideEffectError"] != null)
+    {
+        <div class="alert alert-warning py-2 small">@TempData["SideEffectError"]</div>
+    }
+    @if (TempData["SideEffectSuccess"] != null)
+    {
+        <div class="alert alert-success py-2 small">@TempData["SideEffectSuccess"]</div>
+    }
+
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-header bg-transparent border-0 p-3">
+            <h5 class="fw-bold text-white mb-0">On the report form</h5>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-hover table-sm mb-0">
+                <thead>
+                    <tr>
+                        <th class="ps-4">Side effect</th>
+                        <th class="text-end pe-4">Reports</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var item in standard)
+                    {
+                        <tr>
+                            <td class="ps-4">@item.Name</td>
+                            <td class="text-end pe-4">@item.Reports.Count</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    @if (extras.Any())
+    {
+        <div class="card shadow-sm border-0 mb-4">
+            <div class="card-header bg-transparent border-0 p-3">
+                <h5 class="fw-bold text-white mb-1">Other side effects</h5>
+                <small class="text-muted">
+                    Entered with "Other", or kept from older reports. Rename one to a standard name
+                    (e.g. "Nausea") to merge it into that side effect.
+                </small>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover table-sm mb-0">
+                    <thead>
+                        <tr>
+                            <th class="ps-4">Side effect</th>
+                            <th class="text-end">Reports</th>
+                            @if (isDoctor)
+                            {
+                                <th class="text-end pe-4"></th>
+                            }
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in extras)
+                        {
+                            <tr>
+                                <td class="ps-4">@item.Name</td>
+                                <td class="text-end">@item.Reports.Count</td>
+                                @if (isDoctor)
+                                {
+                                    <td class="text-end pe-4">
+                                        <a asp-action="Edit" asp-route-id="@item.SideEffectId" class="btn btn-sm btn-outline-secondary py-0">Rename</a>
+                                        <a asp-action="Delete" asp-route-id="@item.SideEffectId" class="btn btn-sm btn-outline-danger py-0">Delete</a>
+                                    </td>
+                                }
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
 </div>

@@ -373,8 +373,10 @@ namespace DEGMA.Controllers
             var ids = new HashSet<int>(selectedIds ?? Array.Empty<int>());
             var result = all.Where(s => ids.Contains(s.SideEffectId)).ToList();
 
+            // "Diarrhea" typed under Other links to the existing "Diarrhoea", and so on.
             var customNames = (otherText ?? "")
                 .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Select(SideEffectDictionary.Canonical)
                 .Distinct(StringComparer.OrdinalIgnoreCase);
 
             foreach (var name in customNames)

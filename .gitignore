@@ -365,3 +365,6 @@ FodyWeavers.xsd
 # SQLite side files; the test database is committed as a single file
 DEGMA/degma.db-shm
 DEGMA/degma.db-wal
+
+# Staged CSV imports (contain patient data)
+DEGMA/App_Data/ImportTemp/

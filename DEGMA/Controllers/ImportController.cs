@@ -94,6 +94,7 @@ namespace DEGMA.Controllers
             }
 
             // Save everything to a temp file so we don't hold it in memory/session
+            DeleteAbandonedTempFiles();
             var tempId = Guid.NewGuid().ToString("N");
             var tempData = new ImportTempData
             {
@@ -390,13 +391,20 @@ namespace DEGMA.Controllers
         }
 
         // --- Temp file helpers ---
-        private string GetTempPath(string tempId) =>
-            Path.Combine(_env.ContentRootPath, "App_Data", "ImportTemp", $"{tempId}.json");
+        // Staged imports hold patient data, so they live outside source control
+        // (App_Data/ImportTemp is git-ignored) and are cleaned up when abandoned.
+        private string TempFolder => Path.Combine(_env.ContentRootPath, "App_Data", "ImportTemp");
+
+        // tempId comes from the query string; only accept the 32-hex-digit ids we create.
+        private string? GetTempPath(string? tempId) =>
+            tempId is { Length: 32 } && tempId.All(Uri.IsHexDigit)
+                ? Path.Combine(TempFolder, $"{tempId}.json")
+                : null;
 
         private async Task SaveTempFile(string tempId, ImportTempData data)
         {
-            var path = GetTempPath(tempId);
-            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            var path = GetTempPath(tempId)!;
+            Directory.CreateDirectory(TempFolder);
             await System.IO.File.WriteAllTextAsync(path,
                 JsonSerializer.Serialize(data));
         }
@@ -404,7 +412,7 @@ namespace DEGMA.Controllers
         private async Task<ImportTempData?> LoadTempFile(string tempId)
         {
             var path = GetTempPath(tempId);
-            if (!System.IO.File.Exists(path)) return null;
+            if (path == null || !System.IO.File.Exists(path)) return null;
             var json = await System.IO.File.ReadAllTextAsync(path);
             return JsonSerializer.Deserialize<ImportTempData>(json);
         }
@@ -412,8 +420,23 @@ namespace DEGMA.Controllers
         private void DeleteTempFile(string tempId)
         {
             var path = GetTempPath(tempId);
-            if (System.IO.File.Exists(path))
+            if (path != null && System.IO.File.Exists(path))
                 System.IO.File.Delete(path);
+        }
+
+        // Imports that were started but never confirmed leave their file behind.
+        private void DeleteAbandonedTempFiles()
+        {
+            if (!Directory.Exists(TempFolder)) return;
+            var cutoff = DateTime.UtcNow.AddDays(-1);
+            foreach (var file in new DirectoryInfo(TempFolder).GetFiles("*.json"))
+            {
+                if (file.LastWriteTimeUtc < cutoff)
+                {
+                    try { file.Delete(); }
+                    catch (IOException) { /* in use; try again next time */ }
+                }
+            }
         }
 
         // --- Validation & helpers ---

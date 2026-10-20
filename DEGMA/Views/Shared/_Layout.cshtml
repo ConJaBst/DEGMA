@@ -1,4 +1,5 @@
-﻿<!DOCTYPE html>
+﻿@inject DEGMA.Services.UpdateService Updates
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="utf-8" />
@@ -30,6 +31,20 @@
                             <a class="nav-link px-3 fw-medium" asp-controller="SideEffects" asp-action="Index">Side Effects</a>
                         </li>
                     </ul>
+                    @if (User.IsInRole("Doctor"))
+                    {
+                        @* Updates: check GitHub for a newer release, then offer to install it *@
+                        <div class="d-flex align-items-center gap-2" id="updateWidget">
+                            <span class="small text-muted text-nowrap" id="updateStatus">v@(DEGMA.Services.UpdateService.DisplayVersion)</span>
+                            <button type="button" class="btn btn-sm btn-outline-secondary text-nowrap" id="updateCheck">
+                                Check for updates
+                            </button>
+                            <form asp-controller="Updates" asp-action="Install" method="post" class="d-none" id="updateInstall">
+                                @Html.AntiForgeryToken()
+                                <button type="submit" class="btn btn-sm btn-success text-nowrap" id="updateInstallButton">Update</button>
+                            </form>
+                        </div>
+                    }
                 </div>
             </div>
         </nav>
@@ -38,6 +53,29 @@
     <div class="@(ViewData["WideLayout"] is true ? "container-fluid px-4" : "container")"
          style="@(ViewData["WideLayout"] is true ? "max-width: 1800px;" : null)">
         <main role="main" class="pb-3">
+            @if (User.IsInRole("Doctor") && Updates.Notice is { } notice)
+            {
+                <div class="alert @(notice.Success ? "alert-success" : "alert-danger") d-flex justify-content-between align-items-center py-2">
+                    <span>
+                        @if (notice.Success)
+                        {
+                            <text>DEGMA was updated from v@(notice.From) to v@(notice.To) on @notice.Time.ToString("dd MMM yyyy HH:mm").</text>
+                        }
+                        else
+                        {
+                            <text>The update to v@(notice.To) didn't install: @notice.Error</text>
+                        }
+                    </span>
+                    <form asp-controller="Updates" asp-action="Dismiss" method="post" class="ms-3">
+                        @Html.AntiForgeryToken()
+                        <button type="submit" class="btn btn-sm @(notice.Success ? "btn-outline-success" : "btn-outline-danger")">Dismiss</button>
+                    </form>
+                </div>
+            }
+            @if (TempData["UpdateError"] is string updateError)
+            {
+                <div class="alert alert-danger py-2">@updateError</div>
+            }
             @RenderBody()
         </main>
     </div>
@@ -47,6 +85,55 @@
     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
     <script src="~/js/site.js" asp-append-version="true"></script>
     <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+    @if (User.IsInRole("Doctor"))
+    {
+        <script>
+            (function () {
+                const status = document.getElementById('updateStatus');
+                const check = document.getElementById('updateCheck');
+                const install = document.getElementById('updateInstall');
+                const installButton = document.getElementById('updateInstallButton');
+                if (!check) return;
+
+                check.addEventListener('click', async () => {
+                    check.disabled = true;
+                    status.textContent = 'Checking...';
+                    status.title = '';
+                    try {
+                        const res = await fetch('/Updates/Check', { cache: 'no-store' });
+                        const r = await res.json();
+                        if (r.error) {
+                            status.textContent = 'v' + r.currentVersion + ' · check failed';
+                            status.title = r.error;
+                        } else if (!r.updateAvailable) {
+                            status.textContent = 'v' + r.currentVersion + ' · up to date';
+                        } else if (r.canInstall) {
+                            status.textContent = 'v' + r.currentVersion;
+                            installButton.textContent = 'Update to v' + r.latestVersion;
+                            install.dataset.version = r.latestVersion;
+                            install.classList.remove('d-none');
+                            check.classList.add('d-none');
+                        } else {
+                            status.textContent = 'v' + r.latestVersion + ' available';
+                            status.title = r.cannotInstallReason || '';
+                        }
+                    } catch {
+                        status.textContent = 'Update check failed';
+                    }
+                    check.disabled = false;
+                });
+
+                install.addEventListener('submit', (e) => {
+                    const ok = confirm('Update DEGMA to v' + install.dataset.version + '?\n\n' +
+                        'DEGMA will back up the database, download the update, close, install it and start again. ' +
+                        'Anyone using DEGMA will be disconnected for about a minute.');
+                    if (!ok) { e.preventDefault(); return; }
+                    installButton.disabled = true;
+                    installButton.textContent = 'Backing up and downloading...';
+                });
+            })();
+        </script>
+    }
     @await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>

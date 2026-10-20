@@ -39,6 +39,15 @@ Each [release](https://github.com/ConJaBst/DEGMA/releases/latest) is one zip, `D
 2. **Extract the zip into the install folder**, replacing files when asked. It contains only `DEGMA.exe`, `appsettings.Defaults.json` and `wwwroot`, so it never touches the database (`degma.db`) or the clinic's settings (`appsettings.json`).
 3. **Run `DEGMA.exe` from that folder**, then open http://localhost:5000.
 
+**Updating from inside DEGMA (v3.4 and later).** A Doctor can use **Check for updates** at the right of the top menu.
+1. DEGMA checks the latest GitHub release. If it's newer, an **Update to vX** button appears.
+2. Clicking it backs up the database, and cancels the update if the backup fails.
+3. DEGMA downloads the release zip, checks it against GitHub's SHA-256 checksum, then closes.
+4. A small PowerShell updater unzips the release over the install folder and starts DEGMA again.
+5. The page shows when it's done, and the next page load shows an "updated" banner. If anything fails, the banner shows the error and a log path.
+
+This only works for the published `DEGMA.exe` started from its own folder, not the dev site or `dotnet run`. Builds made with `publish.ps1 -Version vX` record their version for this check.
+
 On a new install, the first start creates `degma.db` and a starter `appsettings.json`. Fill in the SMTP details there (see [Configuration](#configuration)) and restart DEGMA. On an update, the database schema is upgraded automatically.
 
 ### Run from source
